@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+
+{% block title %}План ТО — АвтоГид AI{% endblock %}
+
+{% block content %}
+<div class="page-heading">
+    <div>
+        <h1>План технического обслуживания</h1>
+        <p>Следите за пробегом и отмечайте выполненные работы</p>
+    </div>
+</div>
+
+<div class="callout">{{ icon("book") }}План демонстрационный. Интервалы и перечень работ уточняйте по руководству конкретного автомобиля.</div>
+
+<div class="maintenance-grid">
+    {% for job in jobs %}
+    <article class="feature-card">
+        <div class="service-top">
+            <span class="feature-icon">{{ icon(job.icon) }}</span>
+            <span class="status-pill{% if job.soon %} warn{% endif %}">{{ "По пробегу" if job.target else "По необходимости" }}</span>
+        </div>
+        <h3>{{ job.title }}</h3>
+        <p>{{ job.text }}</p>
+        <div class="service-due">
+            {{ job.due }}
+            <small>{{ "Плановый пробег: " ~ (job.target | km) if job.target else "Точная дата не назначена" }}</small>
+        </div>
+    </article>
+    {% endfor %}
+</div>
+{% endblock %}

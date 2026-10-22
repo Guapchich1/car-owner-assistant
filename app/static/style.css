@@ -1,7 +1,8 @@
 /*
  * Общие стили приложения.
  * Перенесены из прототипа docs/design/prototype/styles.css:
- * только шапка, подвал и общие элементы (кнопки, карточки, таблицы, формы, заголовки).
+ * шапка, подвал, боковая карточка машины, сводка, история, план ТО,
+ * расходы, помощник и общие элементы (кнопки, карточки, таблицы, формы).
  */
 
 /* ---------- Основа ---------- */
@@ -236,6 +237,7 @@ a {
     display: inline-flex;
     align-items: center;
     gap: 5px;
+    text-decoration: none;
 }
 
 .text-btn .icon {
@@ -384,6 +386,708 @@ a {
     margin-top: 13px;
 }
 
+/* ---------- Хлебные крошки и раскладка ---------- */
+
+.breadcrumb {
+    font-size: 11px;
+    color: #96a196;
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 24px;
+}
+
+.breadcrumb span:last-child {
+    color: #6a8f76;
+}
+
+.layout {
+    display: grid;
+    grid-template-columns: 262px minmax(0, 1fr);
+    gap: 27px;
+}
+
+.sidebar,
+.workspace {
+    min-width: 0;
+}
+
+/* ---------- Боковая колонка: карточка машины ---------- */
+
+.car-card {
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 13px;
+    overflow: hidden;
+    box-shadow: 0 7px 22px #31462d07;
+}
+
+.car-visual {
+    position: relative;
+    min-height: 256px;
+    background: linear-gradient(#f6f6e9aa, #e5ede8aa), url("img/scenery.png") center / cover;
+    padding: 20px;
+    overflow: hidden;
+}
+
+.car-visual h2 {
+    font-size: 23px;
+    letter-spacing: -1px;
+    margin: 0 0 7px;
+}
+
+.car-visual p {
+    font-size: 11px;
+    color: #7c897c;
+    margin: 0;
+}
+
+.car-visual img {
+    position: absolute;
+    left: 0;
+    bottom: -3px;
+    width: 100%;
+    height: 190px;
+    object-fit: contain;
+    filter: drop-shadow(0 10px 8px #263c2915);
+}
+
+.car-info {
+    padding: 19px;
+}
+
+.car-info .tag {
+    font-size: 10px;
+    color: var(--green);
+    background: #eff6ed;
+    padding: 5px 9px;
+    border-radius: 20px;
+    display: inline-block;
+}
+
+.spec {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    font-size: 11px;
+    padding: 13px 0;
+    border-bottom: 1px solid #edf0e9;
+    color: #819084;
+}
+
+.spec b {
+    font-weight: 600;
+    color: #344a3d;
+}
+
+.spec:last-of-type {
+    border: 0;
+}
+
+.aside-card {
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 11px;
+    padding: 18px;
+    margin-top: 17px;
+}
+
+.aside-title {
+    display: flex;
+    gap: 9px;
+    align-items: center;
+    margin: 0 0 12px;
+    font-size: 12px;
+}
+
+.aside-title .icon {
+    width: 17px;
+    height: 17px;
+    color: #55896a;
+}
+
+.aside-card p {
+    font-size: 11px;
+    color: #839184;
+    line-height: 1.8;
+    margin-bottom: 0;
+}
+
+.health {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.health strong {
+    font-size: 14px;
+}
+
+.status-pill {
+    font-size: 10px;
+    padding: 5px 8px;
+    border-radius: 20px;
+    background: #eaf5e9;
+    color: #528562;
+    white-space: nowrap;
+}
+
+.status-pill.warn {
+    background: #fff1d9;
+    color: #a77724;
+}
+
+.aside-link {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 0 0;
+    width: 100%;
+    font-size: 11px;
+    color: var(--green);
+    text-decoration: none;
+}
+
+.aside-link .icon {
+    width: 15px;
+    height: 15px;
+}
+
+/* ---------- Сводка: плитки ---------- */
+
+.stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 13px;
+    margin-bottom: 23px;
+}
+
+.stat {
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 11px;
+    padding: 18px;
+}
+
+.stat-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    color: #829182;
+    font-size: 10px;
+    margin-bottom: 11px;
+}
+
+.stat-top .icon {
+    width: 18px;
+    height: 18px;
+    color: #79a386;
+}
+
+.stat strong {
+    font-size: 23px;
+    letter-spacing: -.6px;
+    display: block;
+}
+
+.stat small {
+    display: block;
+    font-size: 10px;
+    color: #94a18f;
+    margin-top: 8px;
+}
+
+/* ---------- Главная ---------- */
+
+.home-grid {
+    display: grid;
+    grid-template-columns: minmax(320px, 1fr) minmax(350px, 1.08fr);
+    gap: 22px;
+}
+
+.timeline {
+    padding-top: 1px;
+}
+
+.event {
+    position: relative;
+    padding: 0 0 25px 42px;
+    min-height: 75px;
+}
+
+.event::before {
+    content: "";
+    position: absolute;
+    width: 2px;
+    left: 12px;
+    top: 23px;
+    bottom: 0;
+    background: #b8d9c2;
+}
+
+.event:last-child::before {
+    display: none;
+}
+
+.event-dot {
+    position: absolute;
+    top: 1px;
+    left: 0;
+    width: 26px;
+    height: 26px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    background: #5fa776;
+    color: #fff;
+}
+
+.event-dot .icon {
+    width: 14px;
+    height: 14px;
+}
+
+.event h3 {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    align-items: center;
+    margin: 0 0 6px;
+    font-size: 12px;
+}
+
+.event time {
+    font-size: 9px;
+    color: #8f9d90;
+    font-weight: 400;
+    white-space: nowrap;
+}
+
+.event p {
+    margin: 0;
+    font-size: 11px;
+    color: #7c8b7e;
+    line-height: 1.55;
+}
+
+.event.now .event-dot {
+    outline: 4px solid #e9a344;
+    outline-offset: 3px;
+    background: #258a60;
+}
+
+.event.now h3 {
+    color: var(--green);
+}
+
+.event.future .event-dot {
+    background: #edf0e9;
+    color: #748271;
+}
+
+.event.future::before,
+.event.now::before {
+    background: #e5e9e1;
+}
+
+.event .tiny-price {
+    font-size: 10px;
+    color: #4c7759;
+    margin-top: 4px;
+}
+
+.right-stack {
+    display: grid;
+    gap: 17px;
+    align-content: start;
+}
+
+.service-banner {
+    height: 181px;
+    border-radius: 11px;
+    background: url("img/scenery.png") center / cover;
+    position: relative;
+    overflow: hidden;
+    padding: 18px;
+    display: flex;
+    align-items: center;
+    isolation: isolate;
+}
+
+.service-banner::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, #e0eeeabc, transparent);
+    z-index: -1;
+}
+
+.service-banner > img {
+    position: absolute;
+    right: -15px;
+    bottom: -12px;
+    width: 72%;
+    height: 190px;
+    object-fit: contain;
+    z-index: -1;
+    filter: drop-shadow(0 8px 6px #18291e15);
+}
+
+.service-banner .banner-label {
+    background: #fffffff0;
+    backdrop-filter: blur(4px);
+    border-radius: 10px;
+    padding: 18px 15px;
+    max-width: 225px;
+    display: flex;
+    gap: 12px;
+    align-items: center;
+}
+
+.banner-icon {
+    height: 39px;
+    width: 39px;
+    border-radius: 10px;
+    background: var(--green);
+    display: grid;
+    place-items: center;
+    color: #fff;
+    flex-shrink: 0;
+}
+
+.banner-label small {
+    font-size: 10px;
+    color: #6f8274;
+    display: block;
+    margin-bottom: 7px;
+}
+
+.banner-label strong {
+    font-size: 13px;
+    line-height: 1.6;
+    display: block;
+}
+
+.mini-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+}
+
+.mini-card {
+    padding: 18px;
+}
+
+.mini-card h3 {
+    font-size: 12px;
+    margin: 0 0 13px;
+}
+
+.expense-amount {
+    font-size: 26px;
+    letter-spacing: -.8px;
+    font-weight: 700;
+    margin: 9px 0;
+}
+
+.subtext {
+    font-size: 10px;
+    color: #91a08f;
+    line-height: 1.7;
+}
+
+.chart {
+    display: flex;
+    gap: 6px;
+    align-items: end;
+    height: 62px;
+    margin-top: 18px;
+}
+
+.chart i {
+    flex: 1;
+    height: var(--h);
+    background: linear-gradient(#f2b7a3, #fbded0);
+    border-radius: 2px 2px 0 0;
+}
+
+.doc-mini {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    padding: 11px 0;
+    border-bottom: 1px solid var(--line);
+    font-size: 11px;
+}
+
+.doc-mini:last-of-type {
+    border: 0;
+}
+
+.doc-mini .icon {
+    color: #6c9b7b;
+    width: 20px;
+    height: 20px;
+}
+
+.doc-mini b {
+    font-size: 11px;
+    display: block;
+}
+
+.doc-mini small {
+    display: block;
+    color: #92a18f;
+    font-size: 9px;
+    margin-top: 4px;
+}
+
+.lower-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin-top: 22px;
+}
+
+.lower-grid.single {
+    grid-template-columns: 1fr;
+}
+
+/* ---------- Помощник ---------- */
+
+.assistant-head {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+}
+
+.assistant-head .banner-icon {
+    background: #f1eaf7;
+    color: #9a7cb1;
+    height: 35px;
+    width: 35px;
+}
+
+.assistant-head h3 {
+    font-size: 13px;
+    margin: 0 0 5px;
+}
+
+.assistant-head p {
+    font-size: 10px;
+    color: #96a18f;
+    margin: 0;
+}
+
+.chat-input {
+    display: flex;
+    gap: 8px;
+    margin-top: 18px;
+}
+
+.chat-input input {
+    flex: 1;
+    min-width: 0;
+    border: 1px solid #e3e9df;
+    border-radius: 7px;
+    padding: 11px;
+    font-size: 11px;
+}
+
+.chat-input button {
+    padding: 9px;
+}
+
+.chat-input .icon {
+    width: 18px;
+    height: 18px;
+}
+
+.assistant-answer {
+    margin-top: 20px;
+}
+
+.ai-answer {
+    background: #f5f8f0;
+    border: 1px solid #e0e9d6;
+    border-radius: 9px;
+    padding: 18px;
+    font-size: 12px;
+    line-height: 1.9;
+    color: #6d8662;
+}
+
+.ai-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 17px;
+}
+
+.ai-chips a {
+    border: 1px solid #dfe8d7;
+    border-radius: 20px;
+    background: #fff;
+    padding: 9px 13px;
+    color: #739167;
+    font-size: 11px;
+    text-decoration: none;
+}
+
+/* ---------- История: поиск и фильтры ---------- */
+
+.tools {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 18px;
+}
+
+.tools input,
+.tools select {
+    border: 1px solid #dce5d7;
+    border-radius: 7px;
+    background: #fff;
+    padding: 11px;
+    font-size: 12px;
+    color: #536c59;
+}
+
+.tools input {
+    flex: 1;
+    min-width: 180px;
+}
+
+.export-row {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-top: 18px;
+}
+
+.export-row small {
+    font-size: 10px;
+    color: #9aa58f;
+}
+
+/* ---------- План ТО ---------- */
+
+.callout {
+    border: 1px solid #e0ead8;
+    background: #f0f6e9;
+    padding: 16px 19px;
+    font-size: 11px;
+    line-height: 1.8;
+    color: #6e8865;
+    border-radius: 9px;
+    margin-bottom: 20px;
+}
+
+.callout .icon {
+    vertical-align: middle;
+    margin-right: 7px;
+}
+
+.maintenance-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 17px;
+}
+
+.feature-card {
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 22px;
+    min-width: 0;
+}
+
+.feature-card .feature-icon {
+    width: 41px;
+    height: 41px;
+    display: grid;
+    place-items: center;
+    background: #edf5e9;
+    color: #699460;
+    border-radius: 11px;
+    margin-bottom: 18px;
+}
+
+.feature-card h3 {
+    font-size: 15px;
+    margin: 0 0 10px;
+    line-height: 1.5;
+}
+
+.feature-card p {
+    color: #8b9985;
+    font-size: 11px;
+    line-height: 1.8;
+    margin: 0 0 15px;
+}
+
+.service-top {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.service-top .feature-icon {
+    margin: 0;
+}
+
+.service-due {
+    font-size: 18px;
+    font-weight: 700;
+    color: #4d7752;
+}
+
+.service-due small {
+    display: block;
+    font-size: 10px;
+    font-weight: 400;
+    color: #9aa48c;
+    margin-top: 6px;
+}
+
+/* ---------- Расходы ---------- */
+
+.expense-list {
+    margin-top: 23px;
+}
+
+.expense-bar {
+    display: grid;
+    grid-template-columns: 160px 1fr 100px;
+    gap: 17px;
+    align-items: center;
+    margin: 18px 0;
+    font-size: 11px;
+}
+
+.expense-bar > div {
+    height: 8px;
+    border-radius: 10px;
+    background: #eef2e9;
+    overflow: hidden;
+}
+
+.expense-bar i {
+    display: block;
+    width: var(--w);
+    height: 100%;
+    background: #92b78e;
+    border-radius: 10px;
+}
+
+.expense-bar b {
+    text-align: right;
+}
+
 /* ---------- Подвал ---------- */
 
 .footer {
@@ -434,6 +1138,48 @@ a {
         padding: 24px;
     }
 
+    .layout {
+        grid-template-columns: 235px 1fr;
+        gap: 22px;
+    }
+
+    .home-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .right-stack {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .service-banner {
+        height: auto;
+        min-height: 220px;
+    }
+
+    .mini-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .mini-card {
+        min-height: 150px;
+    }
+
+    .mini-grid .doc-mini {
+        padding: 8px 0;
+    }
+
+    .stats {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .maintenance-grid {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .lower-grid {
+        gap: 15px;
+    }
+
     .page-heading {
         align-items: start;
     }
@@ -480,6 +1226,41 @@ a {
         padding: 20px;
     }
 
+    .layout {
+        grid-template-columns: 210px 1fr;
+        gap: 18px;
+    }
+
+    .right-stack {
+        grid-template-columns: 1fr;
+    }
+
+    .mini-grid {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .lower-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .car-visual {
+        min-height: 240px;
+        padding: 18px;
+    }
+
+    .car-visual h2 {
+        font-size: 22px;
+    }
+
+    .maintenance-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .expense-bar {
+        grid-template-columns: 120px 1fr 80px;
+        gap: 10px;
+    }
+
     .page-heading {
         flex-direction: column;
         gap: 17px;
@@ -513,6 +1294,179 @@ a {
 
     .shell {
         padding: 18px 15px;
+    }
+
+    .breadcrumb {
+        margin-bottom: 17px;
+        font-size: 9px;
+    }
+
+    .breadcrumb span:last-child {
+        display: none;
+    }
+
+    .layout {
+        display: block;
+    }
+
+    .sidebar {
+        margin-bottom: 23px;
+    }
+
+    .car-card {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .car-visual {
+        min-height: 242px;
+        padding: 18px 13px;
+    }
+
+    .car-visual h2 {
+        font-size: 20px;
+    }
+
+    .car-visual p {
+        font-size: 9px;
+    }
+
+    .car-visual img {
+        bottom: 3px;
+        height: 150px;
+    }
+
+    .car-info {
+        padding: 16px 13px;
+    }
+
+    .spec {
+        font-size: 9px;
+        padding: 12px 0;
+    }
+
+    .car-info .tag {
+        font-size: 8px;
+    }
+
+    .car-info .primary {
+        font-size: 9px;
+        padding: 9px;
+        margin-top: 10px;
+    }
+
+    .aside-card {
+        display: none;
+    }
+
+    .stats {
+        gap: 10px;
+        margin-bottom: 18px;
+    }
+
+    .stat {
+        padding: 15px;
+    }
+
+    .stat small,
+    .stat-top {
+        font-size: 9px;
+    }
+
+    .home-grid {
+        display: block;
+    }
+
+    .home-grid > .card {
+        margin-bottom: 17px;
+    }
+
+    .right-stack {
+        display: block;
+    }
+
+    .service-banner {
+        min-height: 180px;
+        margin-bottom: 15px;
+    }
+
+    .service-banner .banner-label {
+        padding: 15px 12px;
+        max-width: 215px;
+    }
+
+    .service-banner > img {
+        width: 74%;
+    }
+
+    .mini-grid {
+        gap: 12px;
+    }
+
+    .mini-card {
+        padding: 14px;
+    }
+
+    .mini-card h3 {
+        font-size: 11px;
+    }
+
+    .expense-amount {
+        font-size: 24px;
+    }
+
+    .doc-mini b {
+        font-size: 10px;
+    }
+
+    .doc-mini small {
+        font-size: 8px;
+    }
+
+    .doc-mini .icon {
+        width: 16px;
+        height: 16px;
+    }
+
+    .lower-grid {
+        margin-top: 18px;
+    }
+
+    .event {
+        padding-left: 38px;
+    }
+
+    .event h3 {
+        font-size: 11px;
+    }
+
+    .event p {
+        font-size: 10px;
+    }
+
+    .tools {
+        gap: 8px;
+    }
+
+    .tools input {
+        flex-basis: 100%;
+        min-width: 0;
+    }
+
+    .tools select {
+        flex: 1;
+        min-width: 0;
+        font-size: 11px;
+    }
+
+    .expense-bar {
+        grid-template-columns: 90px 1fr 70px;
+        font-size: 10px;
+        gap: 9px;
+    }
+
+    .maintenance-grid {
+        gap: 12px;
     }
 
     .page-heading h1 {
