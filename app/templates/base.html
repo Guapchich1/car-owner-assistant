@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light">
+    <title>{% block title %}АвтоГид AI{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', path='style.css') }}">
+</head>
+<body>
+    {% from "_icons.html" import icon %}
+    {# Пункты меню: ключ, иконка, подпись. Страниц пока нет — ссылки ведут на «#». #}
+    {% set nav_items = [
+        ("car", "car", "Мой автомобиль"),
+        ("history", "history", "История"),
+        ("maintenance", "calendar", "План ТО"),
+        ("expenses", "chart", "Расходы"),
+        ("assistant", "chat", "Помощник"),
+    ] %}
+    <header class="topbar">
+        <a class="logo" href="/">{{ icon("car") }}АвтоГид AI</a>
+        <nav class="topnav" aria-label="Основная навигация">
+            {% for key, icon_name, label in nav_items %}
+            {% if key == active_nav %}
+            <a class="active" href="#" aria-current="page">{{ icon(icon_name) }}{{ label }}</a>
+            {% else %}
+            <a href="#">{{ icon(icon_name) }}{{ label }}</a>
+            {% endif %}
+            {% endfor %}
+        </nav>
+    </header>
+    <div class="shell">
+        <main>
+            {% block content %}{% endblock %}
+        </main>
+        <footer class="footer">
+            <span>© 2026 Помощник автовладельца</span>
+            <span>Сделано для спокойных поездок</span>
+        </footer>
+    </div>
+</body>
+</html>

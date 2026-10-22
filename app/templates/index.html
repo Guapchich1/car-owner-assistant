@@ -1,14 +1,13 @@
-<!doctype html>
-<html lang="ru">
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Помощник автовладельца</title>
-</head>
-<body>
-    <main>
-        <h1>Помощник автовладельца</h1>
-        <p>Скоро здесь будут ваши машины</p>
-    </main>
-</body>
-</html>
+{% extends "base.html" %}
+{% set active_nav = "car" %}
+
+{% block title %}Сервисная книжка — АвтоГид AI{% endblock %}
+
+{% block content %}
+<div class="page-heading">
+    <div>
+        <h1>Сервисная книжка</h1>
+        <p>Здесь появятся ваши машины</p>
+    </div>
+</div>
+{% endblock %}
