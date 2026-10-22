@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+
+{% block title %}Помощник — АвтоГид AI{% endblock %}
+
+{% block content %}
+<div class="page-heading">
+    <div>
+        <h1>Помощник автовладельца</h1>
+        <p>Ответы об эксплуатации и обслуживании со ссылками на источники</p>
+    </div>
+</div>
+
+{% include "_assistant_card.html" %}
+
+<section class="card assistant-answer">
+    {% if question %}
+    <p class="subtext">Ваш вопрос: {{ question }}</p>
+    {% endif %}
+    <div class="ai-answer">
+        ИИ-помощник ещё не подключён, поэтому здесь пока нет ответа.<br>
+        Для подготовки к поездке сверьтесь с руководством автомобиля и проверьте сроки ТО в сервисной книжке.
+    </div>
+    <div class="ai-chips">
+        <a href="/maintenance">План обслуживания</a>
+        <a href="/history">История работ</a>
+        <a href="/expenses">Расходы</a>
+    </div>
+</section>
+{% endblock %}

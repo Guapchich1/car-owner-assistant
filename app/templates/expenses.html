@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+
+{% block title %}Расходы — АвтоГид AI{% endblock %}
+
+{% block content %}
+<div class="page-heading">
+    <div>
+        <h1>Расходы на автомобиль</h1>
+        <p>Работы и запчасти на основании вашей истории</p>
+    </div>
+</div>
+
+{% include "_stats.html" %}
+
+<section class="card">
+    <div class="card-heading">
+        <h2>За всё время: {{ spent_total | money }}</h2>
+        <span class="subtext">Топливо и страховка в эту сумму не включены</span>
+    </div>
+    <div class="expense-list">
+        {% for g in groups %}
+        <div class="expense-bar">
+            <span>{{ g.title }}</span>
+            <div><i style="--w:{{ g.width }}%"></i></div>
+            <b>{{ g.amount | money }}</b>
+        </div>
+        {% else %}
+        <p class="subtext">Добавьте первую работу с расходом.</p>
+        {% endfor %}
+    </div>
+</section>
+{% endblock %}

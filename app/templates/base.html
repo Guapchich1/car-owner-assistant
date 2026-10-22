@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light">
+    <title>{% block title %}АвтоГид AI{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', path='style.css') }}">
+</head>
+<body>
+    {% from "_icons.html" import icon %}
+    {# Пункты меню: ключ, адрес, иконка, подпись. #}
+    {% set nav_items = [
+        ("car", "/", "car", "Мой автомобиль"),
+        ("history", "/history", "history", "История"),
+        ("maintenance", "/maintenance", "calendar", "План ТО"),
+        ("expenses", "/expenses", "chart", "Расходы"),
+        ("assistant", "/assistant", "chat", "Помощник"),
+    ] %}
+    {% set car_name = vehicle.make ~ " " ~ vehicle.model %}
+    <header class="topbar">
+        <a class="logo" href="/">{{ icon("car") }}АвтоГид AI</a>
+        <nav class="topnav" aria-label="Основная навигация">
+            {% for key, href, icon_name, label in nav_items %}
+            {% if key == active_nav %}
+            <a class="active" href="{{ href }}" aria-current="page">{{ icon(icon_name) }}{{ label }}</a>
+            {% else %}
+            <a href="{{ href }}">{{ icon(icon_name) }}{{ label }}</a>
+            {% endif %}
+            {% endfor %}
+        </nav>
+    </header>
+    <div class="shell">
+        <div class="breadcrumb">
+            <span>Главная / Мой автомобиль{% for key, href, icon_name, label in nav_items if key == active_nav and key != "car" %} / {{ label }}{% endfor %}</span>
+            <span>{{ car_name }} · Ваша сервисная книжка</span>
+        </div>
+        <div class="layout">
+            <aside class="sidebar">
+                <section class="car-card">
+                    <div class="car-visual">
+                        <h2>{{ car_name }}</h2>
+                        <p>{{ vehicle.year }} · {{ vehicle.engine }} · {{ vehicle.gearbox }}</p>
+                        <img src="{{ url_for('static', path='img/car.png') }}" alt="Серебристая {{ car_name }}">
+                    </div>
+                    <div class="car-info">
+                        <span class="tag">Мой автомобиль · пример</span>
+                        <div class="spec"><span>Двигатель</span><b>{{ vehicle.engine }} / {{ vehicle.fuel }}</b></div>
+                        <div class="spec"><span>Пробег</span><b>{{ vehicle.mileage | km }}</b></div>
+                        <div class="spec"><span>VIN</span><b>{{ vehicle.vin or "Не указан" }}</b></div>
+                        <button class="primary wide" type="button" disabled title="Появится вместе с карточкой по VIN">{{ icon("edit") }}Редактировать авто</button>
+                    </div>
+                </section>
+                <section class="aside-card">
+                    <h3 class="aside-title">{{ icon("shield") }}На контроле</h3>
+                    <div class="health">
+                        <strong>Обслуживание</strong>
+                        <span class="status-pill{% if oil_soon %} warn{% endif %}">{{ "Скоро ТО" if oil_due > vehicle.mileage else "Пора на ТО" }}</span>
+                    </div>
+                    <p>Интервалы задаются вручную. Сверяйте план с регламентом вашего автомобиля.</p>
+                    <a class="aside-link" href="/maintenance">Открыть план ТО {{ icon("right") }}</a>
+                </section>
+                <section class="aside-card">
+                    <h3 class="aside-title">{{ icon("chat") }}Вопрос об автомобиле</h3>
+                    <p>Помощник ответит со ссылками на источники: регламент, руководство, статьи.</p>
+                    <a class="aside-link" href="/assistant">Спросить помощника {{ icon("arrow") }}</a>
+                </section>
+            </aside>
+            <main class="workspace">
+                {% block content %}{% endblock %}
+            </main>
+        </div>
+        <footer class="footer">
+            <span>© 2026 АвтоГид AI · Данные на страницах — пример: база данных, VIN-декодер и ИИ-помощник пока не подключены.</span>
+            <span>Сделано для спокойных поездок</span>
+        </footer>
+    </div>
+</body>
+</html>
