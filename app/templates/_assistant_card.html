@@ -1,0 +1,15 @@
+{# Карточка «Спросите об автомобиле»: вопрос уходит на страницу помощника. #}
+{% from "_icons.html" import icon %}
+<section class="card assistant-card">
+    <div class="assistant-head">
+        <span class="banner-icon">{{ icon("chat") }}</span>
+        <div>
+            <h3>Спросите об автомобиле</h3>
+            <p>Подсказки по эксплуатации и обслуживанию</p>
+        </div>
+    </div>
+    <form class="chat-input" action="/assistant" method="get">
+        <input name="q" value="{{ question or '' }}" placeholder="Например: что проверить перед поездкой?" aria-label="Вопрос помощнику" required>
+        <button class="primary" aria-label="Отправить вопрос">{{ icon("arrow") }}</button>
+    </form>
+</section>

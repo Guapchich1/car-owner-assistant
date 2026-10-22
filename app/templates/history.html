@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+
+{% block title %}История обслуживания — АвтоГид AI{% endblock %}
+
+{% block content %}
+<div class="page-heading">
+    <div>
+        <h1>История обслуживания</h1>
+        <p>Все работы, запчасти и расходы — без потерянных заметок</p>
+    </div>
+    <div class="heading-actions">
+        <button class="primary" type="button" disabled title="Появится вместе с журналом работ">{{ icon("wrench") }}Добавить работу</button>
+    </div>
+</div>
+
+<form class="tools" action="/history" method="get">
+    <input name="q" type="search" placeholder="Найти работу или сервис" value="{{ q }}" aria-label="Поиск в истории">
+    <select name="type" aria-label="Категория">
+        <option value="all">Все категории</option>
+        {% for value, title in work_types.items() %}
+        <option value="{{ value }}"{% if selected_type == value %} selected{% endif %}>{{ title }}</option>
+        {% endfor %}
+    </select>
+    <select name="year" aria-label="Год">
+        <option value="all">Все годы</option>
+        {% for y in years %}
+        <option{% if selected_year == y %} selected{% endif %}>{{ y }}</option>
+        {% endfor %}
+    </select>
+    <button class="secondary" type="submit">Показать</button>
+</form>
+
+<div class="table-wrap">
+    {% if found %}
+    <table class="table">
+        <thead>
+            <tr><th>Дата / пробег</th><th>Работа</th><th>Сервис</th><th>Стоимость</th></tr>
+        </thead>
+        <tbody>
+            {% for r in found %}
+            <tr>
+                <td>{{ r.date | ru_date }}<br><small>{{ r.mileage | km }}</small></td>
+                <td><strong>{{ r.title }}</strong><small>{{ work_types[r.type] }}</small></td>
+                <td>{{ r.service or "—" }}</td>
+                <td>{{ r.amount | money }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="empty">Ничего не найдено. Измените поиск или фильтры.</div>
+    {% endif %}
+</div>
+<div class="export-row">
+    <small>Показано записей: {{ found | length }} из {{ records | length }}</small>
+</div>
+{% endblock %}

@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% set active_nav = "car" %}
+{% from "_icons.html" import icon %}
 
 {% block title %}Сервисная книжка — АвтоГид AI{% endblock %}
 
@@ -7,7 +7,80 @@
 <div class="page-heading">
     <div>
         <h1>Сервисная книжка</h1>
-        <p>Здесь появятся ваши машины</p>
+        <p>История, планы и забота о вашем автомобиле — в одном месте</p>
     </div>
+    <div class="heading-actions">
+        <a class="secondary" href="/history">{{ icon("history") }}Вся история</a>
+        <button class="primary" type="button" disabled title="Появится вместе с журналом работ">{{ icon("wrench") }}Добавить работу</button>
+    </div>
+</div>
+
+{% include "_stats.html" %}
+
+<div class="home-grid">
+    <section class="card">
+        <div class="card-heading">
+            <h2>История обслуживания</h2>
+            <a class="text-btn" href="/history">Все записи {{ icon("right") }}</a>
+        </div>
+        <div class="timeline">
+            {% for r in timeline %}
+            <div class="event">
+                <span class="event-dot">{{ icon("check") }}</span>
+                <h3>{{ r.mileage | km }}<time>{{ r.date | ru_date }}</time></h3>
+                <p>{{ r.title }}</p>
+                <div class="tiny-price">{{ r.amount | money }} · {{ r.service or "Сервис не указан" }}</div>
+            </div>
+            {% endfor %}
+            <div class="event now">
+                <span class="event-dot">{{ icon("check") }}</span>
+                <h3>{{ vehicle.mileage | km }}<time>Сейчас</time></h3>
+                <p>Текущее состояние автомобиля</p>
+            </div>
+            <div class="event future">
+                <span class="event-dot">{{ icon("wrench") }}</span>
+                <h3>{{ oil_due | km }}<time>{{ oil_due_text }}</time></h3>
+                <p>Следующее ТО — масло и масляный фильтр</p>
+            </div>
+        </div>
+    </section>
+
+    <div class="right-stack">
+        <section class="service-banner">
+            <img src="{{ url_for('static', path='img/car.png') }}" alt="">
+            <div class="banner-label">
+                <span class="banner-icon">{{ icon("wrench") }}</span>
+                <div>
+                    <small>Ближайшее ТО</small>
+                    <strong>Замена масла<br>{{ oil_due_text | lower }}</strong>
+                </div>
+            </div>
+        </section>
+        <div class="mini-grid">
+            <section class="card mini-card">
+                <h3>Расходы за всё время</h3>
+                <div class="expense-amount">{{ spent_total | money }}</div>
+                <div class="subtext">Работы и запчасти в журнале</div>
+                <div class="chart" role="img" aria-label="Сравнение стоимости последних работ">
+                    {% for height in chart %}<i style="--h:{{ height }}%"></i>{% endfor %}
+                </div>
+                <a class="aside-link" href="/expenses">Разобрать расходы {{ icon("right") }}</a>
+            </section>
+            <section class="card mini-card">
+                <h3>Ближайшие работы</h3>
+                {% for job in jobs %}
+                <div class="doc-mini">
+                    {{ icon(job.icon) }}
+                    <div><b>{{ job.title }}</b><small>{{ job.due }}</small></div>
+                </div>
+                {% endfor %}
+                <a class="aside-link" href="/maintenance">Весь план ТО {{ icon("right") }}</a>
+            </section>
+        </div>
+    </div>
+</div>
+
+<div class="lower-grid single">
+    {% include "_assistant_card.html" %}
 </div>
 {% endblock %}
