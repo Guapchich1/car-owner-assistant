@@ -11,7 +11,8 @@
 Машины российского рынка. Код пишет ИИ-агент, команда проверяет.
 
 ## Стек
-- Python 3.12, FastAPI, шаблоны Jinja2, HTMX, Pico.css
+- Python 3.12, FastAPI, шаблоны Jinja2, HTMX, свои стили
+  в app/static/style.css (по прототипу из docs/design/prototype/)
 - SQLite + SQLAlchemy 2.0, миграции Alembic
 - Настройки и ключи в .env
 - pytest для тестов, ruff для проверки кода

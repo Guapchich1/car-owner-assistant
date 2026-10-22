@@ -1,0 +1,12 @@
+{# Иконки интерфейса: контуры взяты из прототипа docs/design/prototype/. #}
+{% set icon_paths = {
+    "car": "M3 15v4m18-4v4M3 15l1-5 3-5h10l3 5 1 5v2H3zM4 10h16M7 14h2m6 0h2M7 5l-2 5m12-5 2 5",
+    "history": "M3 11a9 9 0 1 1 2 7M3 4v7h7m2-5v6l4 2",
+    "calendar": "M5 5h14v16H5zM8 2v6m8-6v6M5 10h14",
+    "chart": "M4 21V12h3v9M11 21V7h3v14M18 21V2h3v19",
+    "chat": "M21 11a9 9 0 0 1-9 9H5l-4 3 2-7a9 9 0 1 1 18-5zM8 10h.01M12 10h.01M16 10h.01",
+} %}
+
+{% macro icon(name) -%}
+<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="{{ icon_paths[name] }}"/></svg>
+{%- endmacro %}
