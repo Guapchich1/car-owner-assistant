@@ -1,0 +1,24 @@
+{# Четыре плитки сводки: главная и расходы. #}
+{% from "_icons.html" import icon %}
+<div class="stats">
+    <div class="stat">
+        <div class="stat-top">Текущий пробег{{ icon("mileage") }}</div>
+        <strong>{{ vehicle.mileage | km }}</strong>
+        <small>Обновите после поездки</small>
+    </div>
+    <div class="stat">
+        <div class="stat-top">До замены масла{{ icon("wrench") }}</div>
+        <strong>{{ (oil_due - vehicle.mileage) | km if oil_due > vehicle.mileage else "Пора на ТО" }}</strong>
+        <small>Регламент можно настроить</small>
+    </div>
+    <div class="stat">
+        <div class="stat-top">Расходы за месяц{{ icon("chart") }}</div>
+        <strong>{{ spent_month | money }}</strong>
+        <small>По записям в журнале</small>
+    </div>
+    <div class="stat">
+        <div class="stat-top">Работ в истории{{ icon("history") }}</div>
+        <strong>{{ records | length }}</strong>
+        <small>Сервисы, детали и затраты</small>
+    </div>
+</div>

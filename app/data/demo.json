@@ -1,0 +1,21 @@
+{
+    "vehicle": {
+        "make": "Škoda",
+        "model": "Octavia",
+        "year": 2020,
+        "engine": "1.4 TSI",
+        "gearbox": "DSG",
+        "fuel": "бензин",
+        "mileage": 84500,
+        "vin": "",
+        "oil_interval": 15000
+    },
+    "records": [
+        {"date": "2021-03-12", "mileage": 10000, "type": "oil", "title": "Замена масла и масляного фильтра", "amount": 6500, "service": "Автоцентр Север"},
+        {"date": "2022-08-18", "mileage": 30000, "type": "filters", "title": "Плановое ТО, воздушный и салонный фильтры", "amount": 12800, "service": "Автоцентр Север"},
+        {"date": "2024-05-14", "mileage": 60000, "type": "diagnostic", "title": "Свечи зажигания и диагностика", "amount": 17400, "service": "VAG Service"},
+        {"date": "2026-04-18", "mileage": 71000, "type": "oil", "title": "Замена масла и масляного фильтра", "amount": 8400, "service": "VAG Service"},
+        {"date": "2026-09-12", "mileage": 82000, "type": "brakes", "title": "Замена передних тормозных колодок", "amount": 11500, "service": "Точка сервиса"},
+        {"date": "2026-10-05", "mileage": 83800, "type": "diagnostic", "title": "Компьютерная диагностика", "amount": 4000, "service": "VAG Service"}
+    ]
+}
