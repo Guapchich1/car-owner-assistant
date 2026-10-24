@@ -6,12 +6,15 @@
       "Bash(pytest *)",
       "Bash(ruff *)",
       "Bash(git status)",
-      "Bash(git diff *)"
+      "Bash(git diff *)",
+      "Bash(gh issue view *)"
     ],
     "deny": [
       "Read(./.env)",
       "Read(./.env.*)",
-      "Bash(git push *)"
+      "Bash(git push *)",
+      "Bash(gh pr merge *)",
+      "Bash(gh api *)"
     ]
   },
   "hooks": {
