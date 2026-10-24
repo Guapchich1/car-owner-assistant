@@ -5,3 +5,5 @@ __pycache__/
 *.db
 .pytest_cache/
 .claude/settings.local.json
+data/regulations_full.csv
+data/catalog_full.json
