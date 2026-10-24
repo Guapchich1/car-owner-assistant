@@ -40,6 +40,9 @@
 - Создать новую миграцию после изменения app/models.py:
   `python -m alembic revision --autogenerate -m "Что изменилось"`
   — затем проверить созданный файл в migrations/versions/
+- Пересобрать справочник моделей после изменения data/regulations_full.csv:
+  `python scripts/build_catalog.py` — создаёт app/data/catalog.json (выборка,
+  в git) и data/catalog_full.json (все модели, не в git)
 - Запустить тесты: `python -m pytest`
 - Проверить код: `python -m ruff check .`
 - Те же проверки автоматически запускаются на GitHub при каждом PR.
