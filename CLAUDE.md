@@ -20,7 +20,10 @@
 ## Структура
 - app/main.py — запуск приложения
 - app/routers/ — страницы
+- app/db.py — подключение к БД (адрес — DATABASE_URL, по умолчанию
+  sqlite:///./car_assistant.db)
 - app/models.py — таблицы БД
+- migrations/ — миграции Alembic (настройки — alembic.ini)
 - app/services/ — логика (VIN, план ТО, LLM)
 - app/templates/ — HTML-шаблоны
 - app/data/ — справочники в JSON
@@ -33,6 +36,10 @@
 - Установить библиотеки: `python -m pip install -r requirements.txt`
 - Запустить приложение: `python -m uvicorn app.main:app --reload`
   — откроется по адресу http://127.0.0.1:8000, остановить: Ctrl+C
+- Применить миграции (создать или обновить базу): `python -m alembic upgrade head`
+- Создать новую миграцию после изменения app/models.py:
+  `python -m alembic revision --autogenerate -m "Что изменилось"`
+  — затем проверить созданный файл в migrations/versions/
 - Запустить тесты: `python -m pytest`
 - Проверить код: `python -m ruff check .`
 - Те же проверки автоматически запускаются на GitHub при каждом PR.
