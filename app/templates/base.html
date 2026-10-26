@@ -5,7 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="color-scheme" content="light">
     <title>{% block title %}АвтоГид AI{% endblock %}</title>
-    <link rel="stylesheet" href="{{ url_for('static', path='style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', path='style.css') }}?v={{ static_version('style.css') }}">
+    <script src="{{ url_for('static', path='js/htmx.min.js') }}" defer></script>
 </head>
 <body>
     {% from "_icons.html" import icon %}
@@ -17,7 +18,8 @@
         ("expenses", "/expenses", "chart", "Расходы"),
         ("assistant", "/assistant", "chat", "Помощник"),
     ] %}
-    {% set car_name = vehicle.make ~ " " ~ vehicle.model %}
+    {# Машина пользователя — из базы; car пустой, если её ещё не добавили. #}
+    {% set car_name = car.make ~ " " ~ car.model if car else "Машина не добавлена" %}
     <header class="topbar">
         <a class="logo" href="/">{{ icon("car") }}АвтоГид AI</a>
         <nav class="topnav" aria-label="Основная навигация">
@@ -38,21 +40,38 @@
         <div class="layout">
             <aside class="sidebar">
                 <section class="car-card">
+                    {% if car %}
+                    {% set gearbox = gearboxes.get(car.gearbox) or "Не указана" %}
                     <div class="car-visual">
                         <h2>{{ car_name }}</h2>
-                        <p>{{ vehicle.year }} · {{ vehicle.engine }} · {{ vehicle.gearbox }}</p>
-                        <img src="{{ url_for('static', path='img/car.png') }}" alt="Серебристая {{ car_name }}">
+                        <p>{{ car.year }} · {{ car.engine or "Двигатель не указан" }} · {{ gearbox }}</p>
+                        <img src="{{ url_for('static', path='img/car.png') }}" alt="{{ car_name }}">
                     </div>
                     <div class="car-info">
-                        <span class="tag">Мой автомобиль · пример</span>
-                        <div class="spec"><span>Двигатель</span><b>{{ vehicle.engine }} / {{ vehicle.fuel }}</b></div>
-                        <div class="spec"><span>Пробег</span><b>{{ vehicle.mileage | km }}</b></div>
-                        <div class="spec"><span>VIN</span><b>{{ vehicle.vin or "Не указан" }}</b></div>
+                        <span class="tag">Мой автомобиль</span>
+                        <div class="spec"><span>Поколение</span><b>{{ car.generation or "Не указано" }}</b></div>
+                        <div class="spec"><span>Двигатель</span><b>{{ car.engine or "Не указан" }}</b></div>
+                        <div class="spec"><span>Коробка</span><b>{{ gearbox }}</b></div>
+                        <div class="spec"><span>Год выпуска</span><b>{{ car.year }}</b></div>
+                        <div class="spec"><span>Пробег</span><b>{{ car.mileage | km }}</b></div>
+                        <div class="spec"><span>VIN</span><b>{{ car.vin or "Не указан" }}</b></div>
+                        <div class="spec"><span>Добавлена</span><b>{{ car.created_at | msk_datetime }} (МСК)</b></div>
                         <button class="primary wide" type="button" disabled title="Появится вместе с карточкой по VIN">{{ icon("edit") }}Редактировать авто</button>
                     </div>
+                    {% else %}
+                    <div class="car-visual">
+                        <h2>{{ car_name }}</h2>
+                        <p>Выберите машину из справочника</p>
+                        <img src="{{ url_for('static', path='img/car.png') }}" alt="">
+                    </div>
+                    <div class="car-info">
+                        <a class="primary wide" href="/cars/new">{{ icon("car") }}Добавить машину</a>
+                    </div>
+                    {% endif %}
                 </section>
                 <section class="aside-card">
                     <h3 class="aside-title">{{ icon("shield") }}На контроле</h3>
+                    <p class="subtext">Пример — заработает после задач 3.1 и 4.1.</p>
                     <div class="health">
                         <strong>Обслуживание</strong>
                         <span class="status-pill{% if oil_soon %} warn{% endif %}">{{ "Скоро ТО" if oil_due > vehicle.mileage else "Пора на ТО" }}</span>
@@ -71,7 +90,7 @@
             </main>
         </div>
         <footer class="footer">
-            <span>© 2026 АвтоГид AI · Данные на страницах — пример: база данных, VIN-декодер и ИИ-помощник пока не подключены.</span>
+            <span>© 2026 АвтоГид AI · Машина хранится в базе данных; журнал, расходы и план ТО — пока пример. VIN-декодер и ИИ-помощник пока не подключены.</span>
             <span>Сделано для спокойных поездок</span>
         </footer>
     </div>
