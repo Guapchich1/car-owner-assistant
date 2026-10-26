@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+
+{% block title %}Добавить машину — АвтоГид AI{% endblock %}
+
+{% block content %}
+<div class="page-heading">
+    <div>
+        <h1>Добавить машину</h1>
+        <p>Выберите машину из справочника по шагам: марка, модель, поколение и двигатель</p>
+    </div>
+</div>
+
+<section class="card">
+    <form class="car-form" method="post" action="/cars/new">
+        {% if errors %}
+        <div class="form-error" role="alert">Проверьте поля формы — некоторые заполнены неверно.</div>
+        {% endif %}
+        <div class="form-grid" id="car-fields">
+            {% include "_car_fields.html" %}
+        </div>
+        <div class="form-grid">
+            <div class="form-field">
+                <label for="mileage">Текущий пробег, км</label>
+                <input id="mileage" name="mileage" type="number" inputmode="numeric" min="0" max="2000000" step="1" required value="{{ values.mileage }}">
+                {% if errors.mileage %}<div class="form-error" id="mileage-error">{{ errors.mileage }}</div>{% endif %}
+            </div>
+            <div class="form-field">
+                <label for="gearbox">Коробка передач</label>
+                <select id="gearbox" name="gearbox" required>
+                    <option value="">Выберите коробку</option>
+                    {% for code, title in gearboxes.items() %}
+                    <option value="{{ code }}"{% if code == values.gearbox %} selected{% endif %}>{{ title }}</option>
+                    {% endfor %}
+                </select>
+                {% if errors.gearbox %}<div class="form-error" id="gearbox-error">{{ errors.gearbox }}</div>{% endif %}
+            </div>
+        </div>
+        <div class="heading-actions">
+            <button class="primary" type="submit">{{ icon("check") }}Сохранить машину</button>
+            <a class="secondary" href="/">Отмена</a>
+        </div>
+    </form>
+</section>
+{% endblock %}

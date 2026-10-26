@@ -1,0 +1,55 @@
+{# Зависимые списки марка → модель → поколение → двигатель и год выпуска.
+   При выборе в любом списке HTMX запрашивает блок заново с /cars/new/fields. #}
+{% set generation = options.generation %}
+{% macro field_error(name) %}{% if errors[name] %}<div class="form-error" id="{{ name }}-error">{{ errors[name] }}</div>{% endif %}{% endmacro %}
+{% macro htmx() %}hx-get="/cars/new/fields" hx-trigger="change" hx-target="#car-fields" hx-include="closest form"{% endmacro %}
+<div class="form-field">
+    <label for="brand">Марка</label>
+    <select id="brand" name="brand" required {{ htmx() }}>
+        <option value="">Выберите марку</option>
+        {% for name in options.brands %}
+        <option value="{{ name }}"{% if name == options.brand %} selected{% endif %}>{{ name }}</option>
+        {% endfor %}
+    </select>
+    {{ field_error("brand") }}
+</div>
+<div class="form-field">
+    <label for="model">Модель</label>
+    <select id="model" name="model" required {{ htmx() }}{% if not options.models %} disabled{% endif %}>
+        <option value="">{{ "Выберите модель" if options.models else "Сначала выберите марку" }}</option>
+        {% for name in options.models %}
+        <option value="{{ name }}"{% if name == options.model %} selected{% endif %}>{{ name }}</option>
+        {% endfor %}
+    </select>
+    {{ field_error("model") }}
+</div>
+<div class="form-field">
+    <label for="generation">Поколение</label>
+    <select id="generation" name="generation" required {{ htmx() }}{% if not options.generations %} disabled{% endif %}>
+        <option value="">{{ "Выберите поколение" if options.generations else "Сначала выберите модель" }}</option>
+        {% for g in options.generations %}
+        <option value="{{ g.name }}"{% if generation and g.name == generation.name %} selected{% endif %}>{{ g.name }}</option>
+        {% endfor %}
+    </select>
+    {{ field_error("generation") }}
+</div>
+<div class="form-field">
+    <label for="engine">Двигатель</label>
+    <select id="engine" name="engine" required {{ htmx() }}{% if not options.engines %} disabled{% endif %}>
+        <option value="">{{ "Выберите двигатель" if options.engines else "Сначала выберите поколение" }}</option>
+        {% for name in options.engines %}
+        <option value="{{ name }}"{% if name == options.engine %} selected{% endif %}>{{ name }}</option>
+        {% endfor %}
+    </select>
+    {{ field_error("engine") }}
+</div>
+<div class="form-field">
+    <label for="year">Год выпуска</label>
+    <input id="year" name="year" type="number" inputmode="numeric" step="1" required value="{{ values.year }}"{% if generation %} min="{{ generation.year_from }}" max="{{ generation.year_to }}"{% endif %}>
+    {% if generation %}
+    <small class="subtext">Годы выпуска поколения: {{ generation.year_from }}–{{ generation.year_to }}</small>
+    {% else %}
+    <small class="subtext">Сначала выберите поколение</small>
+    {% endif %}
+    {{ field_error("year") }}
+</div>

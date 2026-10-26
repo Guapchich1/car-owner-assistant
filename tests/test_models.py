@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 from alembic import command
 from alembic.config import Config
-from sqlalchemy import create_engine, inspect, select
+from sqlalchemy import create_engine, inspect, select, text
 from sqlalchemy.exc import IntegrityError
 
 from app.models import Car, ServiceRecord
@@ -101,6 +101,26 @@ def test_cars_without_vin_allowed(session):
     assert len(session.scalars(select(Car)).all()) == 2
 
 
+def test_car_generation_and_gearbox(session):
+    """Поколение и коробку можно сохранить; у машины без них — пусто."""
+    session.add_all(
+        [make_car(generation="III 2013-2020", gearbox="robot"), make_car(model="Rapid")]
+    )
+    session.commit()
+    session.expunge_all()
+
+    octavia, rapid = session.scalars(select(Car).order_by(Car.id)).all()
+    assert (octavia.generation, octavia.gearbox) == ("III 2013-2020", "robot")
+    assert (rapid.generation, rapid.gearbox) == (None, None)
+
+
+def test_unknown_gearbox_is_rejected(session):
+    """Коробку не из списка сохранить нельзя."""
+    session.add(make_car(gearbox="DSG"))
+    with pytest.raises(IntegrityError):
+        session.commit()
+
+
 def test_unknown_category_is_rejected(session):
     """Категорию не из списка сохранить нельзя."""
     session.add(make_record(make_car(), category="tuning"))
@@ -137,6 +157,38 @@ def test_deleting_car_deletes_its_records(session):
     assert session.scalars(select(ServiceRecord)).all() == []
 
 
+def test_migration_0002_adds_car_fields(db_url):
+    """Миграция 0002 применяется после 0001 и добавляет поколение и коробку."""
+    config = Config(ROOT / "alembic.ini")
+    config.set_main_option("sqlalchemy.url", db_url)
+    engine = create_engine(db_url)
+
+    def car_columns():
+        return {c["name"] for c in inspect(engine).get_columns("cars")}
+
+    command.upgrade(config, "0001")
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                "INSERT INTO cars (make, model, year, mileage) "
+                "VALUES ('Lada', 'Granta', 2020, 84500)"
+            )
+        )
+    assert "gearbox" not in car_columns()
+
+    command.upgrade(config, "0002")
+    assert {"generation", "gearbox"} <= car_columns()
+    with engine.connect() as connection:
+        row = connection.execute(text("SELECT make, gearbox FROM cars")).one()
+    assert tuple(row) == ("Lada", None)  # старая машина сохранилась
+    with pytest.raises(IntegrityError), engine.begin() as connection:
+        connection.execute(text("UPDATE cars SET gearbox = 'DSG'"))
+
+    command.downgrade(config, "0001")
+    assert not {"generation", "gearbox"} & car_columns()
+    engine.dispose()
+
+
 def test_migrations_create_tables(db_url):
     """alembic upgrade head создаёт обе таблицы, downgrade — удаляет."""
     config = Config(ROOT / "alembic.ini")
@@ -146,6 +198,8 @@ def test_migrations_create_tables(db_url):
     engine = create_engine(db_url)
     tables = set(inspect(engine).get_table_names())
     assert {"cars", "service_records"} <= tables
+    columns = {c["name"] for c in inspect(engine).get_columns("cars")}
+    assert {"generation", "gearbox"} <= columns
 
     command.downgrade(config, "base")
     assert inspect(engine).get_table_names() == ["alembic_version"]
