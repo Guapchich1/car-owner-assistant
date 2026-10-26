@@ -1,20 +1,30 @@
 """Страницы приложения по прототипу docs/design/prototype/.
 
-Пока базы данных нет, страницы показывают пример из app/data/demo.json.
+Карточка машины — из базы. Журнал, расходы и план ТО пока показывают
+пример из app/data/demo.json.
 """
 
 import json
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
+from typing import Annotated
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
+from sqlalchemy.orm import Session
+
+from app.db import get_session
+from app.models import GEARBOXES
+from app.services.cars import get_car, to_msk
 
 APP_DIR = Path(__file__).resolve().parent.parent
 
 router = APIRouter()
 templates = Jinja2Templates(directory=APP_DIR / "templates")
+
+# Сессия базы для обработчика: открывается на время запроса
+DbSession = Annotated[Session, Depends(get_session)]
 
 # Категории работ в журнале
 WORK_TYPES = {
@@ -49,9 +59,23 @@ def format_date(value: str) -> str:
     return date.fromisoformat(value).strftime("%d.%m.%Y")
 
 
+def format_msk_datetime(value: datetime) -> str:
+    """Время из базы (UTC) по Москве: 26.10.2026 14:05."""
+    return to_msk(value).strftime("%d.%m.%Y %H:%M")
+
+
+def static_version(path: str) -> int:
+    """Версия файла из app/static/ — время его изменения. После правки файла
+    адрес меняется, и браузер загружает файл заново, а не берёт из кэша."""
+    return int((APP_DIR / "static" / path).stat().st_mtime)
+
+
 templates.env.filters["km"] = format_km
 templates.env.filters["money"] = format_money
 templates.env.filters["ru_date"] = format_date
+templates.env.filters["msk_datetime"] = format_msk_datetime
+templates.env.globals["gearboxes"] = GEARBOXES
+templates.env.globals["static_version"] = static_version
 
 
 def load_demo() -> dict:
@@ -134,8 +158,8 @@ def maintenance_jobs(vehicle: dict, records: list[dict]) -> list[dict]:
     ]
 
 
-def page_context(active_nav: str) -> dict:
-    """Общие данные для всех страниц: машина, журнал, сводка."""
+def page_context(active_nav: str, session: Session) -> dict:
+    """Общие данные для всех страниц: машина из базы, пример журнала и сводки."""
     demo = load_demo()
     vehicle = demo["vehicle"]
     records = sorted_records(demo["records"])
@@ -143,6 +167,7 @@ def page_context(active_nav: str) -> dict:
     due = oil_due(vehicle, records)
     return {
         "active_nav": active_nav,
+        "car": get_car(session),
         "vehicle": vehicle,
         "records": records,
         "work_types": WORK_TYPES,
@@ -155,24 +180,32 @@ def page_context(active_nav: str) -> dict:
 
 
 @router.get("/", response_class=HTMLResponse)
-def index(request: Request) -> HTMLResponse:
-    """Главная: сводка по машине."""
-    context = page_context("car")
+def index(request: Request, session: DbSession) -> HTMLResponse:
+    """Главная: сводка по машине; без машины — приглашение её добавить."""
+    context = page_context("car", session)
     records = context["records"]
     recent = list(reversed(records[:8]))
     top = max((r["amount"] for r in recent), default=1) or 1
     context["timeline"] = list(reversed(records[:4]))
     context["chart"] = [max(10, round(r["amount"] / top * 100)) for r in recent]
     context["jobs"] = maintenance_jobs(context["vehicle"], records)[:2]
+    # Плитка «Текущий пробег» — из машины в базе; остальное пока по примеру:
+    # журнал — пример, и сроки от реального пробега были бы неверными
+    car = context["car"]
+    context["current_mileage"] = car.mileage if car else context["vehicle"]["mileage"]
     return templates.TemplateResponse(request, "index.html", context)
 
 
 @router.get("/history", response_class=HTMLResponse)
 def history(
-    request: Request, q: str = "", type: str = "all", year: str = "all"
+    request: Request,
+    session: DbSession,
+    q: str = "",
+    type: str = "all",
+    year: str = "all",
 ) -> HTMLResponse:
     """История обслуживания с поиском и фильтрами."""
-    context = page_context("history")
+    context = page_context("history", session)
     records = context["records"]
     query = q.strip().lower()
     found = [
@@ -193,17 +226,17 @@ def history(
 
 
 @router.get("/maintenance", response_class=HTMLResponse)
-def maintenance(request: Request) -> HTMLResponse:
+def maintenance(request: Request, session: DbSession) -> HTMLResponse:
     """План ТО."""
-    context = page_context("maintenance")
+    context = page_context("maintenance", session)
     context["jobs"] = maintenance_jobs(context["vehicle"], context["records"])
     return templates.TemplateResponse(request, "maintenance.html", context)
 
 
 @router.get("/expenses", response_class=HTMLResponse)
-def expenses(request: Request) -> HTMLResponse:
+def expenses(request: Request, session: DbSession) -> HTMLResponse:
     """Расходы по категориям работ."""
-    context = page_context("expenses")
+    context = page_context("expenses", session)
     groups = []
     for key, title in WORK_TYPES.items():
         amount = sum(r["amount"] for r in context["records"] if r["type"] == key)
@@ -218,8 +251,8 @@ def expenses(request: Request) -> HTMLResponse:
 
 
 @router.get("/assistant", response_class=HTMLResponse)
-def assistant(request: Request, q: str = "") -> HTMLResponse:
+def assistant(request: Request, session: DbSession, q: str = "") -> HTMLResponse:
     """ИИ-помощник. Модель пока не подключена."""
-    context = page_context("assistant")
+    context = page_context("assistant", session)
     context["question"] = q.strip()
     return templates.TemplateResponse(request, "assistant.html", context)
