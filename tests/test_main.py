@@ -159,6 +159,7 @@ def test_maintenance_plan(client):
 
 def test_maintenance_ignores_db_mileage(client, session, car):
     """План ТО считается по пробегу из примера и не зависит от пробега машины в базе."""
+
     def plan() -> str:
         # Только основной блок: в карточке машины слева пробег из базы — так и должно быть
         html = client.get("/maintenance").text
