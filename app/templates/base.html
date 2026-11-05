@@ -56,7 +56,8 @@
                         <div class="spec"><span>Пробег</span><b>{{ car.mileage | km }}</b></div>
                         <div class="spec"><span>VIN</span><b>{{ car.vin or "Не указан" }}</b></div>
                         <div class="spec"><span>Добавлена</span><b>{{ car.created_at | msk_datetime }} (МСК)</b></div>
-                        <button class="primary wide" type="button" disabled title="Появится вместе с карточкой по VIN">{{ icon("edit") }}Редактировать авто</button>
+                        <a class="primary wide" href="/cars/{{ car.id }}/edit">{{ icon("edit") }}Редактировать авто</a>
+                        <a class="secondary wide" href="/cars/{{ car.id }}/survey">{{ icon("book") }}{{ "Анкета об использовании" if car.survey else "Заполнить анкету" }}</a>
                     </div>
                     {% else %}
                     <div class="car-visual">

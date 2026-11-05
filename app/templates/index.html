@@ -29,6 +29,10 @@
     </div>
 </div>
 
+{% if saved %}
+<div class="callout" role="status">{{ icon("check") }}Изменения сохранены.</div>
+{% endif %}
+
 {% include "_demo_note.html" %}
 
 {% include "_stats.html" %}
@@ -99,5 +103,17 @@
 <div class="lower-grid single">
     {% include "_assistant_card.html" %}
 </div>
+
+{% if car_warnings %}
+<div class="bottom-alerts">
+    {% for warning in car_warnings %}
+    <div class="bottom-alert" role="alert">
+        {{ icon("shield") }}
+        <span>{{ warning.text }} <a href="/cars/{{ car.id }}/survey/edit#{{ warning.field }}">Исправить анкету</a></span>
+        <button type="button" aria-label="Закрыть" onclick="this.parentElement.remove()">×</button>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
 {% endif %}
 {% endblock %}
