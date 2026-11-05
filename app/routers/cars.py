@@ -80,12 +80,14 @@ def create_car(
         "mileage": mileage,
         "gearbox": gearbox,
     }
-    car, errors = validate_car_form(values)
+    data, errors = validate_car_form(values)
     if errors:
         return render_form(request, session, values, errors, status_code=422)
-    session.add(Car(**car))
+    car = Car(**data)
+    session.add(car)
     session.commit()
-    return RedirectResponse("/", status_code=303)
+    # Сразу предлагаем анкету: её можно пропустить и вернуться позже из карточки
+    return RedirectResponse(f"/cars/{car.id}/survey/edit", status_code=303)
 
 
 @router.get("/new/fields", response_class=HTMLResponse)

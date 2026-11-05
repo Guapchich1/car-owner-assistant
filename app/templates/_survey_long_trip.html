@@ -1,0 +1,14 @@
+{# Условный вопрос о дальних поездках. Показывается, только если они есть;
+   при смене ответа HTMX запрашивает блок заново. #}
+{% if show_distance %}
+<div class="form-field" data-question>
+    <label for="long_trip_distance">{{ distance_title }}</label>
+    <select id="long_trip_distance" name="long_trip_distance">
+        <option value="">Не выбрано</option>
+        {% for code, title in distance_options.items() %}
+        <option value="{{ code }}"{% if code == values.long_trip_distance %} selected{% endif %}>{{ title }}</option>
+        {% endfor %}
+    </select>
+    {% if errors.long_trip_distance %}<div class="form-error">{{ errors.long_trip_distance }}</div>{% endif %}
+</div>
+{% endif %}

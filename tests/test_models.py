@@ -189,15 +189,54 @@ def test_migration_0002_adds_car_fields(db_url):
     engine.dispose()
 
 
+def test_migration_0003_adds_car_surveys(db_url):
+    """Миграция 0003 применяется поверх базы с машиной и откатывается."""
+    config = Config(ROOT / "alembic.ini")
+    config.set_main_option("sqlalchemy.url", db_url)
+    engine = create_engine(db_url)
+
+    command.upgrade(config, "0002")
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                "INSERT INTO cars (make, model, year, mileage) "
+                "VALUES ('Lada', 'Granta', 2020, 84500)"
+            )
+        )
+    assert "car_surveys" not in inspect(engine).get_table_names()
+
+    command.upgrade(config, "0003")
+    with engine.begin() as connection:
+        connection.execute(
+            text("INSERT INTO car_surveys (car_id, monthly_km) VALUES (1, 1000)")
+        )
+        row = connection.execute(
+            text(
+                "SELECT c.make, s.last_service_approximate, s.updated_at "
+                "FROM car_surveys s JOIN cars c ON c.id = s.car_id"
+            )
+        ).one()
+    assert row[:2] == ("Lada", 0)  # машина сохранилась, значение по умолчанию
+    assert row[2] is not None
+    with pytest.raises(IntegrityError), engine.begin() as connection:
+        connection.execute(text("UPDATE car_surveys SET monthly_km = 30001"))
+
+    command.downgrade(config, "0002")
+    assert "car_surveys" not in inspect(engine).get_table_names()
+    with engine.connect() as connection:
+        assert connection.execute(text("SELECT count(*) FROM cars")).scalar() == 1
+    engine.dispose()
+
+
 def test_migrations_create_tables(db_url):
-    """alembic upgrade head создаёт обе таблицы, downgrade — удаляет."""
+    """alembic upgrade head создаёт все таблицы, downgrade — удаляет."""
     config = Config(ROOT / "alembic.ini")
     config.set_main_option("sqlalchemy.url", db_url)
 
     command.upgrade(config, "head")
     engine = create_engine(db_url)
     tables = set(inspect(engine).get_table_names())
-    assert {"cars", "service_records"} <= tables
+    assert {"cars", "service_records", "car_surveys"} <= tables
     columns = {c["name"] for c in inspect(engine).get_columns("cars")}
     assert {"generation", "gearbox"} <= columns
 

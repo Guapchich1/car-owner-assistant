@@ -135,12 +135,12 @@ def test_form_hidden_when_car_exists(client, car):
 
 
 def test_save_car(client, session):
-    """Сохранённая машина появляется в базе и на главной."""
+    """Сохранённая машина появляется в базе и на главной, дальше — анкета."""
     response = client.post("/cars/new", data=FORM, follow_redirects=False)
 
     assert response.status_code == 303
-    assert response.headers["location"] == "/"
     [car] = cars_in(session)
+    assert response.headers["location"] == f"/cars/{car.id}/survey/edit"
     assert (car.make, car.model, car.generation, car.engine) == (
         "Lada",
         "Vesta",

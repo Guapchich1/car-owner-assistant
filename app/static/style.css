@@ -392,6 +392,71 @@ a {
     margin-top: 13px;
 }
 
+/* Анкета: группы галочек и поле с единицей измерения */
+.check-group {
+    border: 0;
+    margin: 0;
+    padding: 0;
+}
+
+.check-group legend,
+.check-title {
+    font-size: 11px;
+    color: #7c8e73;
+    margin-bottom: 8px;
+    padding: 0;
+}
+
+.check-options {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 16px;
+    margin-bottom: 12px;
+}
+
+.form-field .check-option {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    margin: 0;
+    font-size: 12px;
+    color: #344f3c;
+}
+
+.form-field .check-option input {
+    width: auto;
+    padding: 0;
+}
+
+.check-approximate,
+.check-title {
+    margin-top: 14px;
+}
+
+.field-pair {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+}
+
+.survey-form,
+.survey-answers {
+    display: grid;
+    gap: 16px;
+}
+
+.survey-form {
+    margin-top: 16px;
+}
+
+.survey-answers .spec b {
+    text-align: right;
+}
+
+.survey-warning {
+    margin-top: 16px;
+}
+
 /* ---------- Хлебные крошки и раскладка ---------- */
 
 .breadcrumb {
