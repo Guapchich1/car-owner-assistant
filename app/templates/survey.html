@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+
+{% block title %}Анкета об использовании — АвтоГид AI{% endblock %}
+
+{% macro field_error(name) %}{% if errors[name] %}<div class="form-error">{{ errors[name] }}</div>{% endif %}{% endmacro %}
+
+{# Выпадающий список: первый пункт очищает ответ — так вопрос можно пропустить. #}
+{% macro select_field(name, label, options, empty="Не выбрано") %}
+<select id="{{ name }}" name="{{ name }}" aria-label="{{ label }}">
+    <option value="">{{ empty }}</option>
+    {% for code, title in options.items() %}
+    <option value="{{ code }}"{% if code == values[name] %} selected{% endif %}>{{ title }}</option>
+    {% endfor %}
+</select>
+{% endmacro %}
+
+{# Галочки и поле «Другое». #}
+{% macro checks(name, options) %}
+<div class="check-options">
+    {% for code, title in options %}
+    <label class="check-option"><input type="checkbox" name="{{ name }}" value="{{ code }}"{% if code in values[name] %} checked{% endif %}>{{ title }}</label>
+    {% endfor %}
+</div>
+{{ field_error(name) }}
+<label class="check-other" for="{{ name }}_other">Другое</label>
+<input id="{{ name }}_other" name="{{ name }}_other" type="text" maxlength="200" value="{{ values[name ~ '_other'] }}">
+{{ field_error(name ~ "_other") }}
+{% endmacro %}
+
+{% block content %}
+<div class="page-heading">
+    <div>
+        <h1>Анкета об использовании</h1>
+        <p>{{ target_car.make }} {{ target_car.model }}</p>
+    </div>
+</div>
+
+<div class="callout">{{ icon("book") }}Ответы помогут в будущем точнее подсказывать сроки ТО и проверки машины. Не больше 15 вопросов, у большинства есть варианты ответа. Любой вопрос можно пропустить, а ответы — изменить позже.</div>
+
+<form class="car-form survey-form" method="post" action="/cars/{{ target_car.id }}/survey/edit">
+    {% if errors %}
+    <div class="form-error" role="alert">Проверьте поля формы — некоторые заполнены неверно.</div>
+    {% endif %}
+
+    {% for block in blocks %}
+    <section class="card">
+        <div class="card-heading"><h2>{{ block.title }}</h2></div>
+        <div class="form-grid">
+            {% for q in block.questions %}
+            {% if q.kind == "single" %}
+            <div class="form-field" data-question>
+                <label for="{{ q.name }}">{{ q.title }}</label>
+                {{ select_field(q.name, q.title, q.options) }}
+                {{ field_error(q.name) }}
+            </div>
+            {% elif q.kind == "long_trips" %}
+            <div class="form-field" data-question>
+                <label for="{{ q.name }}">{{ q.title }}</label>
+                <select id="{{ q.name }}" name="{{ q.name }}" hx-get="/cars/{{ target_car.id }}/survey/long-trip" hx-trigger="change" hx-target="#long-trip" hx-include="closest form">
+                    <option value="">Не выбрано</option>
+                    {% for code, title in q.options.items() %}
+                    <option value="{{ code }}"{% if code == values[q.name] %} selected{% endif %}>{{ title }}</option>
+                    {% endfor %}
+                </select>
+                {{ field_error(q.name) }}
+            </div>
+            <div id="long-trip">{% include "_survey_long_trip.html" %}</div>
+            {% elif q.kind == "multi" %}
+            <fieldset class="form-field full check-group" data-question>
+                <legend>{{ q.title }}</legend>
+                {{ checks(q.name, q.options.items()) }}
+            </fieldset>
+            {% elif q.kind == "mileage" %}
+            <div class="form-field" data-question>
+                <label for="mileage_amount">{{ q.title }}, км</label>
+                <div class="field-pair">
+                    <input id="mileage_amount" name="mileage_amount" type="number" inputmode="numeric" min="0" step="1" value="{{ values.mileage_amount }}">
+                    <select name="mileage_period" aria-label="Период">
+                        {% for code, title in mileage_periods.items() %}
+                        <option value="{{ code }}"{% if code == values.mileage_period %} selected{% endif %}>{{ title }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <small class="subtext">Не знаете — оставьте пустым. В месяц получится от 0 до 30 000 км.</small>
+                {{ field_error("mileage") }}
+            </div>
+            {% elif q.kind == "last_service" %}
+            <fieldset class="form-field full check-group" data-question>
+                <legend>{{ q.title }}</legend>
+                <div class="form-grid">
+                    <div class="form-field">
+                        <label for="last_service_date">Дата</label>
+                        <input id="last_service_date" name="last_service_date" type="date" value="{{ values.last_service_date }}"{% if "last_service_date" in mismatch_fields %} class="field-mismatch"{% endif %}>
+                        {% if mismatch_fields.last_service_date %}<div class="form-error">{{ mismatch_fields.last_service_date }}</div>{% endif %}
+                        {{ field_error("last_service_date") }}
+                    </div>
+                    <div class="form-field">
+                        <label for="last_service_mileage">Пробег, км</label>
+                        <input id="last_service_mileage" name="last_service_mileage" type="number" inputmode="numeric" min="0" step="1" value="{{ values.last_service_mileage }}"{% if "last_service_mileage" in mismatch_fields %} class="field-mismatch"{% endif %}>
+                        {% if mismatch_fields.last_service_mileage %}<div class="form-error">{{ mismatch_fields.last_service_mileage }}</div>{% endif %}
+                        {{ field_error("last_service_mileage") }}
+                    </div>
+                </div>
+                <label class="check-option check-approximate"><input type="checkbox" name="last_service_approximate" value="on"{% if values.last_service_approximate %} checked{% endif %}>Дата и пробег примерные</label>
+                <small class="subtext">Это сведения с ваших слов: в журнал работ они сами не попадут.</small>
+                <div class="check-title">Что делали</div>
+                {% set works = [] %}
+                {% for code in last_service_works %}{% set _ = works.append((code, work_types[code])) %}{% endfor %}
+                {{ checks("last_service_works", works) }}
+            </fieldset>
+            {% elif q.kind == "reminder" %}
+            <fieldset class="form-field full check-group" data-question>
+                <legend>{{ q.title }}</legend>
+                <div class="form-grid">
+                    <div class="form-field">
+                        <label for="reminder_km">По пробегу</label>
+                        {{ select_field("reminder_km", "По пробегу", reminder_km_options, "Не знаю") }}
+                        {{ field_error("reminder_km") }}
+                    </div>
+                    <div class="form-field">
+                        <label for="reminder_months">По времени</label>
+                        {{ select_field("reminder_months", "По времени", reminder_month_options, "Не знаю") }}
+                        {{ field_error("reminder_months") }}
+                    </div>
+                </div>
+            </fieldset>
+            {% endif %}
+            {% endfor %}
+        </div>
+    </section>
+    {% endfor %}
+
+    <div class="heading-actions">
+        <button class="primary" type="submit">{{ icon("check") }}Сохранить ответы</button>
+        {% if target_car.survey %}
+        <a class="secondary" href="/cars/{{ target_car.id }}/survey">Отмена</a>
+        {% else %}
+        <a class="secondary" href="/">Пропустить</a>
+        {% endif %}
+    </div>
+</form>
+{% endblock %}

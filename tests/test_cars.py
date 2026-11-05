@@ -1,9 +1,9 @@
-from datetime import datetime
+from datetime import date, datetime
 
 import pytest
 from sqlalchemy import select
 
-from app.models import Car
+from app.models import Car, CarSurvey, ServiceRecord
 from app.routers.pages import format_msk_datetime
 from app.services import catalog
 from app.services.cars import form_options, to_msk, validate_car_form
@@ -135,12 +135,12 @@ def test_form_hidden_when_car_exists(client, car):
 
 
 def test_save_car(client, session):
-    """Сохранённая машина появляется в базе и на главной."""
+    """Сохранённая машина появляется в базе и на главной, дальше — анкета."""
     response = client.post("/cars/new", data=FORM, follow_redirects=False)
 
     assert response.status_code == 303
-    assert response.headers["location"] == "/"
     [car] = cars_in(session)
+    assert response.headers["location"] == f"/cars/{car.id}/survey/edit"
     assert (car.make, car.model, car.generation, car.engine) == (
         "Lada",
         "Vesta",
@@ -295,3 +295,175 @@ def test_form_options_reset_chain():
     assert options["generation"] is None
     assert options["engine"] == ""
     assert options["engines"] == []
+
+
+# --- Редактирование и удаление ---
+
+
+def legacy_car(session, **fields):
+    """Старая запись: без поколения, двигателя и коробки."""
+    car = Car(
+        **{"make": "Lada", "model": "Granta", "year": 2020, "mileage": 1000, **fields}
+    )
+    session.add(car)
+    session.commit()
+    return car
+
+
+def select_block(html, field):
+    """HTML одного выпадающего списка формы."""
+    return html.split(f'id="{field}"', 1)[1].split("</select>", 1)[0]
+
+
+def test_card_button_opens_edit_page(client, car):
+    """Кнопка в карточке активна и ведёт на страницу редактирования."""
+    html = client.get("/").text
+
+    assert f'<a class="primary wide" href="/cars/{car.id}/edit">' in html
+    assert "Появится вместе с карточкой по VIN" not in html
+
+
+def test_edit_form_shows_car_values(client, car):
+    """Форма показывает характеристики машины и зависимые списки справочника."""
+    response = client.get(f"/cars/{car.id}/edit")
+
+    assert response.status_code == 200
+    html = response.text
+    assert "<h1>Редактировать авто</h1>" in html
+    assert f'action="/cars/{car.id}/edit"' in html
+    assert 'hx-get="/cars/new/fields"' in html
+    for value in (
+        "Lada",
+        "Granta",
+        "I Рестайлинг 2018-2026",
+        "1.6 (90 л.с.)",
+        "automatic",
+    ):
+        assert f'<option value="{value}" selected>' in html
+    assert 'value="2020"' in html
+    assert 'value="84500"' in html
+    assert "этого значения нет в справочнике" not in html
+
+
+def test_edit_page_has_delete_button_with_confirm(client, car):
+    html = client.get(f"/cars/{car.id}/edit").text
+
+    assert f'hx-post="/cars/{car.id}/delete"' in html
+    assert "hx-confirm=" in html
+    assert "Удалить авто" in html
+
+
+def test_edit_form_opens_for_legacy_car(client, session):
+    """У старой записи нет поколения и коробки: поля пустые, подсказок нет."""
+    car = legacy_car(session)
+
+    response = client.get(f"/cars/{car.id}/edit")
+
+    assert response.status_code == 200
+    html = response.text
+    assert '<option value="Granta" selected>' in html
+    assert "selected" not in select_block(html, "generation")
+    assert "selected" not in select_block(html, "gearbox")
+    assert "этого значения нет в справочнике" not in html
+
+
+def test_edit_form_warns_about_value_not_in_catalog(client, session):
+    """Значение не из справочника форма сбрасывает, поэтому говорит об этом."""
+    car = legacy_car(session, model="Нет такой")
+
+    html = client.get(f"/cars/{car.id}/edit").text
+
+    assert "Модель. Сохранено: Нет такой — этого значения нет в справочнике" in html
+    assert 'value="Нет такой"' not in html
+    # Подсказка вне #car-fields: обновление списков через HTMX её не стирает
+    assert html.index("этого значения нет") < html.index('id="car-fields"')
+
+
+def test_update_car_changes_only_form_fields(client, session, car):
+    """Сохранение меняет характеристики; VIN, дата добавления и анкета остаются."""
+    car.vin = "XTA21900000000001"
+    session.add(CarSurvey(car=car, trip_frequency="daily"))
+    session.commit()
+    created_at = car.created_at
+
+    response = client.post(f"/cars/{car.id}/edit", data=FORM, follow_redirects=False)
+
+    assert response.status_code == 303
+    assert response.headers["location"] == "/?saved=1"
+    session.expire_all()
+    assert (car.make, car.model, car.generation, car.engine) == (
+        "Lada",
+        "Vesta",
+        "I 2015-2022",
+        "1.8 (122 л.с.)",
+    )
+    assert (car.year, car.mileage, car.gearbox) == (2017, 120000, "robot")
+    assert car.vin == "XTA21900000000001"
+    assert car.created_at == created_at
+    assert car.survey.trip_frequency == "daily"
+    assert len(cars_in(session)) == 1
+
+
+def test_update_can_lower_mileage(client, session, car):
+    """Задача — исправлять ошибки, поэтому пробег можно уменьшить."""
+    client.post(f"/cars/{car.id}/edit", data=form(mileage="100"))
+
+    session.expire_all()
+    assert car.mileage == 100
+
+
+def test_saved_message_only_after_saving(client, car):
+    """Сообщение о сохранении — только после сохранения."""
+    response = client.post(f"/cars/{car.id}/edit", data=FORM)
+
+    assert "Изменения сохранены" in response.text
+    assert "Lada Vesta" in response.text
+    assert "Изменения сохранены" not in client.get("/").text
+
+
+def test_update_error_keeps_entered_data(client, session, car):
+    """При ошибке форма показывает введённое, а база не меняется."""
+    response = client.post(f"/cars/{car.id}/edit", data=form(year="2030"))
+
+    assert response.status_code == 422
+    assert "<h1>Редактировать авто</h1>" in response.text
+    assert "Это поколение выпускали с 2015 по 2022 год" in response.text
+    assert '<option value="Vesta" selected>' in response.text
+    assert 'value="2030"' in response.text
+    session.expire_all()
+    assert (car.model, car.year) == ("Granta", 2020)
+
+
+def test_delete_car_with_records_and_survey(client, session, car):
+    """Удаление убирает машину, журнал и анкету; можно добавить новую машину."""
+    session.add(CarSurvey(car=car))
+    session.add(
+        ServiceRecord(
+            car=car,
+            date=date(2026, 1, 1),
+            mileage=1000,
+            category="oil",
+            title="Масло",
+            amount=1000,
+        )
+    )
+    session.commit()
+
+    response = client.post(f"/cars/{car.id}/delete", follow_redirects=False)
+
+    assert response.status_code == 204
+    assert response.headers["HX-Redirect"] == "/"
+    session.expire_all()
+    assert cars_in(session) == []
+    assert session.scalars(select(CarSurvey)).all() == []
+    assert session.scalars(select(ServiceRecord)).all() == []
+    assert "Добавьте машину" in client.get("/").text
+    assert client.get("/cars/new", follow_redirects=False).status_code == 200
+
+
+@pytest.mark.parametrize(
+    "method, path",
+    [("get", "edit"), ("post", "edit"), ("post", "delete")],
+)
+def test_unknown_car_not_found(client, method, path):
+    assert client.request(method, f"/cars/999/{path}").status_code == 404

@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session
 from app.db import get_session
 from app.models import GEARBOXES
 from app.services.cars import get_car, to_msk
+from app.services.survey import car_mismatch_warnings
 
 APP_DIR = Path(__file__).resolve().parent.parent
 
@@ -180,9 +181,10 @@ def page_context(active_nav: str, session: Session) -> dict:
 
 
 @router.get("/", response_class=HTMLResponse)
-def index(request: Request, session: DbSession) -> HTMLResponse:
+def index(request: Request, session: DbSession, saved: int = 0) -> HTMLResponse:
     """Главная: сводка по машине; без машины — приглашение её добавить."""
     context = page_context("car", session)
+    context["saved"] = bool(saved)
     records = context["records"]
     recent = list(reversed(records[:8]))
     top = max((r["amount"] for r in recent), default=1) or 1
@@ -193,6 +195,10 @@ def index(request: Request, session: DbSession) -> HTMLResponse:
     # журнал — пример, и сроки от реального пробега были бы неверными
     car = context["car"]
     context["current_mileage"] = car.mileage if car else context["vehicle"]["mileage"]
+    # Сразу после правки машины: её новые данные могли разойтись с анкетой
+    context["car_warnings"] = (
+        car_mismatch_warnings(car.survey, car) if saved and car and car.survey else []
+    )
     return templates.TemplateResponse(request, "index.html", context)
 
 
