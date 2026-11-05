@@ -1,0 +1,2 @@
+{# CSRF-токен сессии для обычной POST-формы; HTMX передаёт его заголовком (см. base.html). #}
+<input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">

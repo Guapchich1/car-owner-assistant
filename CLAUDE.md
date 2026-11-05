@@ -19,12 +19,13 @@
 
 ## Структура
 - app/main.py — запуск приложения
-- app/routers/ — страницы
+- app/routers/ — страницы; app/routers/auth.py — регистрация, вход и выход
 - app/db.py — подключение к БД (адрес — DATABASE_URL, по умолчанию
   sqlite:///./car_assistant.db)
 - app/models.py — таблицы БД
 - migrations/ — миграции Alembic (настройки — alembic.ini)
-- app/services/ — логика (VIN, план ТО, LLM)
+- app/services/ — логика (VIN, план ТО, LLM); app/services/users.py —
+  пользователи, пароли, сессии и CSRF-токены
 - app/templates/ — HTML-шаблоны
 - app/data/ — справочники в JSON
 - tests/ — тесты

@@ -7,11 +7,12 @@ from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from sqlalchemy.orm import Session
 from starlette.datastructures import FormData
 
-from app.models import LONG_TRIP_DISTANCES, MILEAGE_PERIODS, Car, CarSurvey
+from app.models import LONG_TRIP_DISTANCES, MILEAGE_PERIODS, Car, CarSurvey, User
 from app.routers.cars import TargetCar
 from app.routers.pages import (
     NBSP,
     WORK_TYPES,
+    CurrentUser,
     DbSession,
     format_date,
     format_km,
@@ -44,8 +45,10 @@ async def read_form(request: Request) -> FormData:
     return await request.form()
 
 
-def form_context(session: Session, car: Car, values: dict, errors: dict) -> dict:
-    context = page_context("car", session)
+def form_context(
+    session: Session, user: User, car: Car, values: dict, errors: dict
+) -> dict:
+    context = page_context("car", session, user)
     context.update(
         target_car=car,
         values=values,
@@ -145,12 +148,16 @@ def survey_answers(survey: CarSurvey) -> list[dict]:
 
 @router.get("", response_class=HTMLResponse)
 def view_survey(
-    request: Request, session: DbSession, car: TargetCar, saved: int = 0
+    request: Request,
+    session: DbSession,
+    user: CurrentUser,
+    car: TargetCar,
+    saved: int = 0,
 ) -> Response:
     """Ответы только для чтения; если анкеты нет — сразу форма."""
     if car.survey is None:
         return RedirectResponse(f"/cars/{car.id}/survey/edit", status_code=303)
-    context = page_context("car", session)
+    context = page_context("car", session, user)
     context.update(
         target_car=car,
         answers=survey_answers(car.survey),
@@ -161,10 +168,12 @@ def view_survey(
 
 
 @router.get("/edit", response_class=HTMLResponse)
-def edit_survey(request: Request, session: DbSession, car: TargetCar) -> HTMLResponse:
+def edit_survey(
+    request: Request, session: DbSession, user: CurrentUser, car: TargetCar
+) -> HTMLResponse:
     """Форма анкеты с сохранёнными ответами."""
     values = values_from_survey(car.survey) if car.survey else blank_values()
-    context = form_context(session, car, values, {})
+    context = form_context(session, user, car, values, {})
     # Красным — поля, которые не сходятся с машиной, пока их не исправят.
     # При ошибке сохранения подсветка не нужна: те же поля покажет проверка формы
     if car.survey:
@@ -179,6 +188,7 @@ def edit_survey(request: Request, session: DbSession, car: TargetCar) -> HTMLRes
 def save_survey(
     request: Request,
     session: DbSession,
+    user: CurrentUser,
     car: TargetCar,
     form: Annotated[FormData, Depends(read_form)],
 ) -> Response:
@@ -186,7 +196,7 @@ def save_survey(
     values = values_from_form(form)
     data, errors = validate_survey_form(values, car)
     if errors:
-        context = form_context(session, car, values, errors)
+        context = form_context(session, user, car, values, errors)
         return templates.TemplateResponse(
             request, "survey.html", context, status_code=422
         )

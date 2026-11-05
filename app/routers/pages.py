@@ -9,15 +9,22 @@ from datetime import date, datetime
 from pathlib import Path
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
 from app.db import get_session
-from app.models import GEARBOXES
+from app.models import GEARBOXES, User
 from app.services.cars import get_car, to_msk
 from app.services.survey import car_mismatch_warnings
+from app.services.users import (
+    SESSION_COOKIE,
+    LoginRequired,
+    csrf_token_for,
+    tokens_match,
+    user_by_token,
+)
 
 APP_DIR = Path(__file__).resolve().parent.parent
 
@@ -26,6 +33,43 @@ templates = Jinja2Templates(directory=APP_DIR / "templates")
 
 # Сессия базы для обработчика: открывается на время запроса
 DbSession = Annotated[Session, Depends(get_session)]
+
+CSRF_HEADER = "X-CSRF-Token"
+CSRF_FIELD = "csrf_token"
+SAFE_METHODS = ("GET", "HEAD", "OPTIONS")
+
+
+def optional_user(request: Request, session: Session) -> User | None:
+    """Пользователь действующей сессии из cookie; нет сессии — None."""
+    token = request.cookies.get(SESSION_COOKIE)
+    return user_by_token(session, token) if token else None
+
+
+def get_current_user(request: Request, session: DbSession) -> User:
+    """Вошедший пользователь; без входа — переход на /login. Токен для форм — в state."""
+    user = optional_user(request, session)
+    if user is None:
+        raise LoginRequired
+    request.state.csrf_token = csrf_token_for(request.cookies[SESSION_COOKIE])
+    return user
+
+
+CurrentUser = Annotated[User, Depends(get_current_user)]
+
+
+async def verify_csrf(request: Request, user: CurrentUser) -> None:
+    """Запрос, меняющий данные, должен нести токен этой сессии; иначе — 403.
+
+    HTMX передаёт токен заголовком, обычная форма — скрытым полем.
+    """
+    if request.method in SAFE_METHODS:
+        return
+    sent = request.headers.get(CSRF_HEADER)
+    if not sent:
+        sent = (await request.form()).get(CSRF_FIELD)
+    if not tokens_match(request.state.csrf_token, sent):
+        raise HTTPException(status_code=403)
+
 
 # Категории работ в журнале
 WORK_TYPES = {
@@ -159,8 +203,8 @@ def maintenance_jobs(vehicle: dict, records: list[dict]) -> list[dict]:
     ]
 
 
-def page_context(active_nav: str, session: Session) -> dict:
-    """Общие данные для всех страниц: машина из базы, пример журнала и сводки."""
+def page_context(active_nav: str, session: Session, user: User) -> dict:
+    """Общие данные для всех страниц: пользователь, его машина, пример журнала и сводки."""
     demo = load_demo()
     vehicle = demo["vehicle"]
     records = sorted_records(demo["records"])
@@ -168,7 +212,8 @@ def page_context(active_nav: str, session: Session) -> dict:
     due = oil_due(vehicle, records)
     return {
         "active_nav": active_nav,
-        "car": get_car(session),
+        "user": user,
+        "car": get_car(session, user),
         "vehicle": vehicle,
         "records": records,
         "work_types": WORK_TYPES,
@@ -181,9 +226,11 @@ def page_context(active_nav: str, session: Session) -> dict:
 
 
 @router.get("/", response_class=HTMLResponse)
-def index(request: Request, session: DbSession, saved: int = 0) -> HTMLResponse:
+def index(
+    request: Request, session: DbSession, user: CurrentUser, saved: int = 0
+) -> HTMLResponse:
     """Главная: сводка по машине; без машины — приглашение её добавить."""
-    context = page_context("car", session)
+    context = page_context("car", session, user)
     context["saved"] = bool(saved)
     records = context["records"]
     recent = list(reversed(records[:8]))
@@ -206,12 +253,13 @@ def index(request: Request, session: DbSession, saved: int = 0) -> HTMLResponse:
 def history(
     request: Request,
     session: DbSession,
+    user: CurrentUser,
     q: str = "",
     type: str = "all",
     year: str = "all",
 ) -> HTMLResponse:
     """История обслуживания с поиском и фильтрами."""
-    context = page_context("history", session)
+    context = page_context("history", session, user)
     records = context["records"]
     query = q.strip().lower()
     found = [
@@ -232,17 +280,19 @@ def history(
 
 
 @router.get("/maintenance", response_class=HTMLResponse)
-def maintenance(request: Request, session: DbSession) -> HTMLResponse:
+def maintenance(
+    request: Request, session: DbSession, user: CurrentUser
+) -> HTMLResponse:
     """План ТО."""
-    context = page_context("maintenance", session)
+    context = page_context("maintenance", session, user)
     context["jobs"] = maintenance_jobs(context["vehicle"], context["records"])
     return templates.TemplateResponse(request, "maintenance.html", context)
 
 
 @router.get("/expenses", response_class=HTMLResponse)
-def expenses(request: Request, session: DbSession) -> HTMLResponse:
+def expenses(request: Request, session: DbSession, user: CurrentUser) -> HTMLResponse:
     """Расходы по категориям работ."""
-    context = page_context("expenses", session)
+    context = page_context("expenses", session, user)
     groups = []
     for key, title in WORK_TYPES.items():
         amount = sum(r["amount"] for r in context["records"] if r["type"] == key)
@@ -257,8 +307,10 @@ def expenses(request: Request, session: DbSession) -> HTMLResponse:
 
 
 @router.get("/assistant", response_class=HTMLResponse)
-def assistant(request: Request, session: DbSession, q: str = "") -> HTMLResponse:
+def assistant(
+    request: Request, session: DbSession, user: CurrentUser, q: str = ""
+) -> HTMLResponse:
     """ИИ-помощник. Модель пока не подключена."""
-    context = page_context("assistant", session)
+    context = page_context("assistant", session, user)
     context["question"] = q.strip()
     return templates.TemplateResponse(request, "assistant.html", context)

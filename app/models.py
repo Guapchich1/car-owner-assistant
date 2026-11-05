@@ -1,4 +1,4 @@
-"""Таблицы базы данных: машины, записи журнала работ и анкета об использовании."""
+"""Таблицы базы данных: пользователи и сессии, машины, журнал работ и анкета."""
 
 from datetime import date, datetime
 
@@ -9,9 +9,11 @@ from sqlalchemy import (
     Date,
     DateTime,
     ForeignKey,
+    Index,
     Integer,
     String,
     Text,
+    UniqueConstraint,
     false,
     func,
 )
@@ -149,6 +151,45 @@ def _one_of(column: str, values) -> str:
     return f"{column} IN ({listed})"
 
 
+class User(Base):
+    """Пользователь: логин хранится так, как он введён, пароль — только хешем."""
+
+    __tablename__ = "users"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    username: Mapped[str] = mapped_column(String(30))
+    password_hash: Mapped[str] = mapped_column(String(255))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.current_timestamp()
+    )
+
+    sessions: Mapped[list["UserSession"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
+
+
+# Логин уникален без учёта регистра: Arsen и arsen — один и тот же логин
+Index("uq_users_username_lower", func.lower(User.username), unique=True)
+
+
+class UserSession(Base):
+    """Сессия входа. В базе только хеш токена: сам токен есть лишь в cookie."""
+
+    __tablename__ = "user_sessions"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime)  # UTC без часового пояса
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.current_timestamp()
+    )
+
+    user: Mapped[User] = relationship(back_populates="sessions")
+
+
 class Car(Base):
     """Машина пользователя."""
 
@@ -158,9 +199,15 @@ class Car(Base):
             "gearbox IN ({})".format(", ".join(f"'{g}'" for g in GEARBOXES)),
             name="ck_cars_gearbox",
         ),
+        # У пользователя не больше одной машины; NULL между собой не конфликтуют
+        UniqueConstraint("owner_id", name="uq_cars_owner_id"),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    # NULL — машина добавлена до появления пользователей: её никто не видит
+    owner_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL", name="fk_cars_owner_id_users")
+    )
     make: Mapped[str] = mapped_column(String(50))  # марка
     model: Mapped[str] = mapped_column(String(50))
     # Поколение и коробка необязательны в базе: у старых записей их нет

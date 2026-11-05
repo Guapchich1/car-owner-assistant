@@ -146,6 +146,47 @@ a {
     height: 17px;
 }
 
+.topbar-user {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-left: auto;
+    font-size: 12px;
+    color: #52725d;
+}
+
+.topbar-username {
+    font-weight: 650;
+}
+
+/* ---------- Вход, регистрация и страницы ошибок ---------- */
+
+.auth-page {
+    display: flex;
+    justify-content: center;
+    padding: 48px 20px;
+}
+
+.auth-card {
+    width: 100%;
+    max-width: 420px;
+    padding: 28px;
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+}
+
+.auth-card h1 {
+    font-size: 24px;
+    margin: 0 0 20px;
+}
+
+.auth-switch {
+    font-size: 12px;
+    color: var(--muted);
+    margin: 16px 0 0;
+}
+
 /* ---------- Контейнер страницы ---------- */
 
 .shell {

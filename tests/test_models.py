@@ -228,6 +228,93 @@ def test_migration_0003_adds_car_surveys(db_url):
     engine.dispose()
 
 
+def test_migration_0004_adds_users_sessions_and_owner(db_url):
+    """На базе с данными: всё сохраняется, старая машина остаётся без владельца."""
+    config = Config(ROOT / "alembic.ini")
+    config.set_main_option("sqlalchemy.url", db_url)
+    engine = create_engine(db_url)
+
+    def count(table):
+        with engine.connect() as connection:
+            return connection.execute(text(f"SELECT count(*) FROM {table}")).scalar()
+
+    def add_user(connection, username):
+        connection.execute(
+            text("INSERT INTO users (username, password_hash) VALUES (:u, 'x')"),
+            {"u": username},
+        )
+
+    command.upgrade(config, "0003")
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                "INSERT INTO cars (make, model, year, mileage, vin, gearbox) "
+                "VALUES ('Lada', 'Granta', 2020, 84500, 'XTA21900000000001', 'robot')"
+            )
+        )
+        connection.execute(
+            text("INSERT INTO car_surveys (car_id, monthly_km) VALUES (1, 1000)")
+        )
+        connection.execute(
+            text(
+                "INSERT INTO service_records "
+                "(car_id, date, mileage, category, title, amount) "
+                "VALUES (1, '2026-01-01', 1000, 'oil', 'Масло', 1000)"
+            )
+        )
+
+    command.upgrade(config, "0004")
+
+    # Таблица cars пересоздана: данные и связанные записи на месте
+    assert (count("cars"), count("car_surveys"), count("service_records")) == (1, 1, 1)
+    with engine.connect() as connection:
+        owner = connection.execute(text("SELECT owner_id FROM cars")).scalar()
+    assert owner is None
+    # Прежние ограничения машины не потерялись
+    with pytest.raises(IntegrityError), engine.begin() as connection:
+        connection.execute(text("UPDATE cars SET gearbox = 'DSG'"))
+    with pytest.raises(IntegrityError), engine.begin() as connection:
+        connection.execute(
+            text(
+                "INSERT INTO cars (make, model, year, mileage, vin) "
+                "VALUES ('Kia', 'Rio', 2018, 1, 'XTA21900000000001')"
+            )
+        )
+    # Логин уникален без учёта регистра
+    with engine.begin() as connection:
+        add_user(connection, "Arsen")
+    with pytest.raises(IntegrityError), engine.begin() as connection:
+        add_user(connection, "arsen")
+    # У пользователя одна машина; без владельца машин может быть сколько угодно
+    with engine.begin() as connection:
+        connection.execute(text("UPDATE cars SET owner_id = 1"))
+        connection.execute(
+            text(
+                "INSERT INTO cars (make, model, year, mileage) "
+                "VALUES ('Kia', 'Rio', 2018, 1), ('Kia', 'Ceed', 2018, 1)"
+            )
+        )
+    with pytest.raises(IntegrityError), engine.begin() as connection:
+        connection.execute(text("UPDATE cars SET owner_id = 1 WHERE model = 'Rio'"))
+
+    command.downgrade(config, "0003")
+
+    tables = set(inspect(engine).get_table_names())
+    assert not {"users", "user_sessions"} & tables
+    assert "owner_id" not in {c["name"] for c in inspect(engine).get_columns("cars")}
+    assert (count("cars"), count("car_surveys"), count("service_records")) == (3, 1, 1)
+    engine.dispose()
+
+
+def test_migrated_schema_matches_models(db_url):
+    """После миграций модели и база совпадают: новой миграции не требуется."""
+    config = Config(ROOT / "alembic.ini")
+    config.set_main_option("sqlalchemy.url", db_url)
+
+    command.upgrade(config, "head")
+    command.check(config)
+
+
 def test_migrations_create_tables(db_url):
     """alembic upgrade head создаёт все таблицы, downgrade — удаляет."""
     config = Config(ROOT / "alembic.ini")
@@ -236,9 +323,15 @@ def test_migrations_create_tables(db_url):
     command.upgrade(config, "head")
     engine = create_engine(db_url)
     tables = set(inspect(engine).get_table_names())
-    assert {"cars", "service_records", "car_surveys"} <= tables
+    assert {
+        "cars",
+        "service_records",
+        "car_surveys",
+        "users",
+        "user_sessions",
+    } <= tables
     columns = {c["name"] for c in inspect(engine).get_columns("cars")}
-    assert {"generation", "gearbox"} <= columns
+    assert {"generation", "gearbox", "owner_id"} <= columns
 
     command.downgrade(config, "base")
     assert inspect(engine).get_table_names() == ["alembic_version"]
