@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+
+{% block title %}Анкета об использовании — АвтоГид AI{% endblock %}
+
+{% block content %}
+<div class="page-heading">
+    <div>
+        <h1>Анкета об использовании</h1>
+        <p>{{ target_car.make }} {{ target_car.model }}</p>
+    </div>
+    <div class="heading-actions">
+        <a class="primary" href="/cars/{{ target_car.id }}/survey/edit">{{ icon("edit") }}Изменить</a>
+        <button class="danger" type="button" hx-post="/cars/{{ target_car.id }}/survey/clear" hx-confirm="Удалить все ответы анкеты? Отменить это будет нельзя.">Очистить анкету</button>
+    </div>
+</div>
+
+{% if saved %}
+<div class="callout" role="status">{{ icon("check") }}Ответы сохранены.</div>
+{% endif %}
+{% for warning in warnings %}
+<div class="callout survey-warning">{{ icon("shield") }}{{ warning }}</div>
+{% endfor %}
+
+<div class="survey-answers">
+    {% for block in answers %}
+    <section class="card">
+        <div class="card-heading"><h2>{{ block.title }}</h2></div>
+        {% for row in block.rows %}
+        <div class="spec"><span>{{ row.title }}</span><b>{{ row.answer }}</b></div>
+        {% endfor %}
+    </section>
+    {% endfor %}
+</div>
+{% endblock %}
