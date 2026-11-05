@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+
+{% block title %}Редактировать авто — АвтоГид AI{% endblock %}
+
+{% block content %}
+<div class="page-heading">
+    <div>
+        <h1>Редактировать авто</h1>
+        <p>Исправьте характеристики автомобиля или удалите его</p>
+    </div>
+    <div class="heading-actions">
+        <button class="danger" type="button" hx-post="/cars/{{ target_car.id }}/delete" hx-confirm="Удалить автомобиль вместе с журналом работ и анкетой? Отменить это будет нельзя.">Удалить авто</button>
+    </div>
+</div>
+
+{% for item in mismatches %}
+<div class="callout survey-warning">{{ icon("shield") }}{{ item.title }}. Сохранено: {{ item.value }} — этого значения нет в справочнике, выберите заново.</div>
+{% endfor %}
+
+<section class="card">
+    {% include "_car_form.html" %}
+</section>
+{% endblock %}

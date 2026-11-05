@@ -10,6 +10,7 @@ from app.services.survey import (
     LAST_SERVICE_WORKS,
     SURVEY_BLOCKS,
     blank_values,
+    car_mismatch_warnings,
     monthly_km,
     survey_warnings,
     validate_survey_form,
@@ -650,6 +651,100 @@ def test_warning_fires_on_mismatch(fields, part):
 )
 def test_no_warning_without_mismatch(fields):
     assert survey_warnings(CarSurvey(**fields)) == []
+
+
+@pytest.mark.parametrize(
+    "car_fields, part, field",
+    [
+        (
+            {"mileage": "100"},
+            "больше текущего пробега машины (100 км)",
+            "last_service_mileage",
+        ),
+        (
+            {"year": "2022"},
+            "раньше года выпуска машины (2022)",
+            "last_service_date",
+        ),
+    ],
+)
+def test_warning_after_car_edit(client, session, car, url, car_fields, part, field):
+    """Исправили машину так, что анкета не сходится: предупреждение сразу после
+    сохранения, а не на странице анкеты и не на обычной главной."""
+    session.add(
+        CarSurvey(
+            car=car, last_service_mileage=80000, last_service_date=date(2021, 3, 1)
+        )
+    )
+    session.commit()
+
+    car_form = {
+        "brand": "Lada",
+        "model": "Granta",
+        "generation": "I Рестайлинг 2018-2026",
+        "engine": "1.6 (90 л.с.)",
+        "year": "2020",
+        "mileage": "84500",
+        "gearbox": "automatic",
+        **car_fields,
+    }
+    response = client.post(f"/cars/{car.id}/edit", data=car_form)
+
+    assert "Изменения сохранены" in response.text
+    assert part in response.text
+    # Ссылка ведёт к полю с расхождением, и такое поле в форме анкеты есть
+    assert f'<a href="{url}/edit#{field}">Исправить анкету</a>' in response.text
+    assert f'id="{field}"' in client.get(f"{url}/edit").text
+    alert = response.text.split('<div class="bottom-alerts">', 1)[1]
+    assert part in alert
+    assert 'aria-label="Закрыть"' in alert
+    assert part not in client.get(url).text
+    assert part not in client.get("/").text
+
+
+def field_tag(html, field):
+    """Тег поля формы анкеты."""
+    return html.split(f'<input id="{field}"', 1)[1].split(">", 1)[0]
+
+
+def test_mismatched_field_stays_red_until_fixed(client, session, car, url):
+    """Поле красное при каждом открытии формы, пока расхождение не исправят."""
+    session.add(CarSurvey(car=car, last_service_mileage=90000))
+    session.commit()
+
+    # Обычное открытие формы, без перехода по ссылке из предупреждения
+    html = client.get(f"{url}/edit").text
+    assert "field-mismatch" in field_tag(html, "last_service_mileage")
+    assert "field-mismatch" not in field_tag(html, "last_service_date")
+    assert "Больше текущего пробега машины (84 500 км)" in html
+    assert "Раньше года выпуска машины" not in html
+    html = client.get(f"{url}/edit").text
+    assert "field-mismatch" in field_tag(html, "last_service_mileage")
+
+    response = client.post(f"{url}/edit", data={"last_service_mileage": "80000"})
+
+    assert response.status_code == 200
+    html = client.get(f"{url}/edit").text
+    assert "field-mismatch" not in html
+    assert "Больше текущего пробега машины" not in html
+
+
+def test_date_mismatch_hint_under_field(client, session, car, url):
+    """Дата раньше года выпуска: поле красное, под ним подпись с годом."""
+    session.add(CarSurvey(car=car, last_service_date=date(2019, 5, 1)))
+    session.commit()
+
+    html = client.get(f"{url}/edit").text
+
+    assert "field-mismatch" in field_tag(html, "last_service_date")
+    assert "Раньше года выпуска машины (2020)" in html
+
+
+def test_no_car_mismatch_warnings_when_consistent(car):
+    """Пробег и год сходятся с машиной: предупреждений нет."""
+    survey = CarSurvey(last_service_mileage=84500, last_service_date=date(2020, 1, 1))
+
+    assert car_mismatch_warnings(survey, car) == []
 
 
 def test_warning_does_not_block_saving(client, session, url):
