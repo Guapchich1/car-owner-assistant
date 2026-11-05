@@ -457,6 +457,71 @@ a {
     margin-top: 16px;
 }
 
+/* Переход по ссылке к полю: подпись над полем остаётся на экране */
+input:target {
+    scroll-margin-top: 48px;
+}
+
+/* Поле анкеты, которое не сходится с данными машины */
+.form-field input.field-mismatch {
+    border-color: #b2483a;
+    background: #fff1ef;
+    color: #b2483a;
+    box-shadow: 0 0 0 1px #b2483a;
+}
+
+/* Красные предупреждения, закреплённые внизу экрана */
+.bottom-alerts {
+    position: fixed;
+    left: 16px;
+    right: 16px;
+    bottom: 16px;
+    z-index: 20;
+    display: grid;
+    gap: 8px;
+    max-width: 720px;
+    margin: 0 auto;
+}
+
+.bottom-alert {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border: 1px solid #b2483a;
+    border-radius: 9px;
+    background: #fff1ef;
+    color: #b2483a;
+    padding: 12px 14px;
+    font-size: 12px;
+    line-height: 1.6;
+    box-shadow: 0 6px 20px rgb(0 0 0 / 18%);
+}
+
+.bottom-alert .icon {
+    flex: none;
+}
+
+.bottom-alert span {
+    flex: 1;
+}
+
+.bottom-alert a {
+    color: inherit;
+    font-weight: 700;
+    text-decoration: underline;
+}
+
+.bottom-alert button {
+    flex: none;
+    border: 0;
+    background: none;
+    color: inherit;
+    font-size: 18px;
+    line-height: 1;
+    padding: 2px 4px;
+    cursor: pointer;
+}
+
 /* ---------- Хлебные крошки и раскладка ---------- */
 
 .breadcrumb {
