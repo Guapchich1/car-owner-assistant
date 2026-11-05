@@ -1,6 +1,7 @@
 {# Форма машины для добавления и редактирования: адрес и подпись кнопки — из обработчика. #}
 {% from "_icons.html" import icon %}
 <form class="car-form" method="post" action="{{ form_action }}">
+    {% include "_csrf_field.html" %}
     {% if errors %}
     <div class="form-error" role="alert">Проверьте поля формы — некоторые заполнены неверно.</div>
     {% endif %}

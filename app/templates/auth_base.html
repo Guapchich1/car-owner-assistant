@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light">
+    <title>{% block title %}АвтоГид AI{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', path='style.css') }}?v={{ static_version('style.css') }}">
+</head>
+<body>
+    {% from "_icons.html" import icon %}
+    {# Страницы без машины и сводок: вход, регистрация, 404 и 403. #}
+    <header class="topbar">
+        <a class="logo" href="/">{{ icon("car") }}АвтоГид AI</a>
+    </header>
+    <main class="auth-page">
+        <section class="auth-card">
+            {% block content %}{% endblock %}
+        </section>
+    </main>
+</body>
+</html>
