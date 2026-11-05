@@ -4,6 +4,20 @@
 {% block title %}Сервисная книжка — АвтоГид AI{% endblock %}
 
 {% block content %}
+{% if not car %}
+<div class="page-heading">
+    <div>
+        <h1>Сервисная книжка</h1>
+        <p>История, планы и забота о вашем автомобиле — в одном месте</p>
+    </div>
+</div>
+
+<section class="card empty">
+    <h2>Добавьте машину</h2>
+    <p>Выберите марку, модель, поколение и двигатель из справочника — по ним построим план ТО.</p>
+    <a class="primary" href="/cars/new">{{ icon("car") }}Добавить машину</a>
+</section>
+{% else %}
 <div class="page-heading">
     <div>
         <h1>Сервисная книжка</h1>
@@ -14,6 +28,8 @@
         <button class="primary" type="button" disabled title="Появится вместе с журналом работ">{{ icon("wrench") }}Добавить работу</button>
     </div>
 </div>
+
+{% include "_demo_note.html" %}
 
 {% include "_stats.html" %}
 
@@ -83,4 +99,5 @@
 <div class="lower-grid single">
     {% include "_assistant_card.html" %}
 </div>
+{% endif %}
 {% endblock %}

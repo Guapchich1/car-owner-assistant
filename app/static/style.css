@@ -378,6 +378,12 @@ a {
     min-height: 80px;
 }
 
+/* Блоки формы машины: поля и кнопки — с отступом друг от друга */
+.car-form {
+    display: grid;
+    gap: 16px;
+}
+
 .form-error {
     font-size: 12px;
     color: #b35e4e;

@@ -19,15 +19,32 @@ from app.db import Base
 # Категории работ — как поле type в app/data/demo.json
 CATEGORIES = ("oil", "filters", "brakes", "tires", "diagnostic", "other")
 
+# Коробки передач: код в базе → название в интерфейсе
+GEARBOXES = {
+    "manual": "МКПП",
+    "automatic": "АКПП",
+    "cvt": "Вариатор",
+    "robot": "Робот",
+}
+
 
 class Car(Base):
     """Машина пользователя."""
 
     __tablename__ = "cars"
+    __table_args__ = (
+        CheckConstraint(
+            "gearbox IN ({})".format(", ".join(f"'{g}'" for g in GEARBOXES)),
+            name="ck_cars_gearbox",
+        ),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     make: Mapped[str] = mapped_column(String(50))  # марка
     model: Mapped[str] = mapped_column(String(50))
+    # Поколение и коробка необязательны в базе: у старых записей их нет
+    generation: Mapped[str | None] = mapped_column(String(100))
+    gearbox: Mapped[str | None] = mapped_column(String(20))  # код из GEARBOXES
     year: Mapped[int] = mapped_column(Integer)
     engine: Mapped[str | None] = mapped_column(String(50))
     # Необязательный: машин без VIN может быть несколько, NULL не конфликтует
