@@ -152,16 +152,20 @@ def test_empty_form_is_saved_with_sql_nulls(client, session, url):
     assert value is None
 
 
-def test_survey_belongs_to_its_car(client, session, car):
+def test_survey_belongs_to_its_car(client, make_client, make_user, session, car):
     """Анкета одной машины не показывается у другой."""
-    other = Car(make="Kia", model="Rio", year=2018, mileage=50000)
+    neighbour = make_user("neighbour")
+    other = Car(
+        make="Kia", model="Rio", year=2018, mileage=50000, owner_id=neighbour.id
+    )
     session.add(other)
     session.commit()
+    other_client = make_client(neighbour)
 
     client.post(f"/cars/{car.id}/survey/edit", data={"purposes_other": "Рыбалка"})
 
-    assert "Рыбалка" not in client.get(f"/cars/{other.id}/survey/edit").text
-    response = client.get(f"/cars/{other.id}/survey", follow_redirects=False)
+    assert "Рыбалка" not in other_client.get(f"/cars/{other.id}/survey/edit").text
+    response = other_client.get(f"/cars/{other.id}/survey", follow_redirects=False)
     assert response.status_code == 303
     [survey] = surveys_in(session)
     assert survey.car_id == car.id

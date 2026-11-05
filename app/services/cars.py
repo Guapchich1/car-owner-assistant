@@ -6,7 +6,7 @@ from datetime import UTC, datetime, timedelta, timezone
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models import GEARBOXES, Car
+from app.models import GEARBOXES, Car, User
 from app.services import catalog
 
 MAX_MILEAGE = 2_000_000
@@ -19,9 +19,9 @@ MSK = timezone(timedelta(hours=3))
 FORM_FIELDS = ("brand", "model", "generation", "engine", "year", "mileage", "gearbox")
 
 
-def get_car(session: Session) -> Car | None:
-    """Машина пользователя; пока она одна — первая в базе."""
-    return session.scalars(select(Car).order_by(Car.id).limit(1)).first()
+def get_car(session: Session, user: User) -> Car | None:
+    """Машина пользователя; пока у него может быть только одна."""
+    return session.scalars(select(Car).where(Car.owner_id == user.id)).first()
 
 
 def to_msk(value: datetime) -> datetime:

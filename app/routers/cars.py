@@ -4,10 +4,12 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
+from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.models import Car
-from app.routers.pages import DbSession, page_context, templates
+from app.models import Car, User
+from app.routers.pages import CurrentUser, DbSession, page_context, templates
 from app.services.cars import (
     FORM_FIELDS,
     catalog_mismatches,
@@ -20,11 +22,16 @@ from app.services.cars import (
 router = APIRouter(prefix="/cars")
 
 
-def get_target_car(car_id: int, session: DbSession) -> Car:
-    """Машина из адреса страницы; нет такой — 404."""
-    car = session.get(Car, car_id)
+def get_target_car(car_id: int, session: DbSession, user: CurrentUser) -> Car:
+    """Машина из адреса страницы, если она принадлежит вошедшему; иначе — 404.
+
+    Чужая и несуществующая машина неотличимы, а без владельца не видна никому.
+    Все адреса с номером машины получают её только отсюда.
+    """
+    query = select(Car).where(Car.id == car_id, Car.owner_id == user.id)
+    car = session.scalars(query).first()
     if car is None:
-        raise HTTPException(status_code=404, detail="Машина не найдена")
+        raise HTTPException(status_code=404)
     return car
 
 
@@ -55,11 +62,12 @@ FormField = Annotated[str, Form()]
 def render_form(
     request: Request,
     session: Session,
+    user: User,
     values: dict[str, str],
     errors: dict[str, str],
     status_code: int = 200,
 ) -> HTMLResponse:
-    context = page_context("car", session)
+    context = page_context("car", session, user)
     context.update(fields_context(values, errors))
     context.update(form_action="/cars/new", submit_label="Сохранить машину")
     return templates.TemplateResponse(
@@ -70,12 +78,13 @@ def render_form(
 def render_edit_form(
     request: Request,
     session: Session,
+    user: User,
     car: Car,
     values: dict[str, str],
     errors: dict[str, str],
     status_code: int = 200,
 ) -> HTMLResponse:
-    context = page_context("car", session)
+    context = page_context("car", session, user)
     context.update(fields_context(values, errors))
     context.update(
         target_car=car,
@@ -89,17 +98,18 @@ def render_edit_form(
 
 
 @router.get("/new", response_class=HTMLResponse)
-def new_car(request: Request, session: DbSession) -> Response:
+def new_car(request: Request, session: DbSession, user: CurrentUser) -> Response:
     """Форма добавления машины. Машина пока одна: если она есть — на главную."""
-    if get_car(session):
+    if get_car(session, user):
         return RedirectResponse("/", status_code=303)
-    return render_form(request, session, form_values({}), {})
+    return render_form(request, session, user, form_values({}), {})
 
 
 @router.post("/new", response_class=HTMLResponse)
 def create_car(
     request: Request,
     session: DbSession,
+    user: CurrentUser,
     brand: FormField = "",
     model: FormField = "",
     generation: FormField = "",
@@ -109,7 +119,7 @@ def create_car(
     gearbox: FormField = "",
 ) -> Response:
     """Сохраняет машину. При ошибке форма возвращается с введёнными данными."""
-    if get_car(session):
+    if get_car(session, user):
         return RedirectResponse("/", status_code=303)
     values = {
         "brand": brand,
@@ -122,10 +132,15 @@ def create_car(
     }
     data, errors = validate_car_form(values)
     if errors:
-        return render_form(request, session, values, errors, status_code=422)
-    car = Car(**data)
+        return render_form(request, session, user, values, errors, status_code=422)
+    car = Car(**data, owner_id=user.id)
     session.add(car)
-    session.commit()
+    try:
+        session.commit()
+    except IntegrityError:
+        # Форму отправили дважды одновременно: машина у пользователя уже есть
+        session.rollback()
+        return RedirectResponse("/", status_code=303)
     # Сразу предлагаем анкету: её можно пропустить и вернуться позже из карточки
     return RedirectResponse(f"/cars/{car.id}/survey/edit", status_code=303)
 
@@ -138,15 +153,18 @@ def car_fields(request: Request) -> HTMLResponse:
 
 
 @router.get("/{car_id}/edit", response_class=HTMLResponse)
-def edit_car(request: Request, session: DbSession, car: TargetCar) -> HTMLResponse:
+def edit_car(
+    request: Request, session: DbSession, user: CurrentUser, car: TargetCar
+) -> HTMLResponse:
     """Форма редактирования с сохранёнными характеристиками машины."""
-    return render_edit_form(request, session, car, values_from_car(car), {})
+    return render_edit_form(request, session, user, car, values_from_car(car), {})
 
 
 @router.post("/{car_id}/edit", response_class=HTMLResponse)
 def update_car(
     request: Request,
     session: DbSession,
+    user: CurrentUser,
     car: TargetCar,
     brand: FormField = "",
     model: FormField = "",
@@ -168,7 +186,9 @@ def update_car(
     }
     data, errors = validate_car_form(values)
     if errors:
-        return render_edit_form(request, session, car, values, errors, status_code=422)
+        return render_edit_form(
+            request, session, user, car, values, errors, status_code=422
+        )
     for name, value in data.items():
         setattr(car, name, value)
     session.commit()

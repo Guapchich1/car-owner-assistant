@@ -1,0 +1,20 @@
+{% extends "auth_base.html" %}
+{% block title %}Вход · АвтоГид AI{% endblock %}
+{% block content %}
+<h1>Вход</h1>
+<form class="car-form" method="post" action="/login">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <input type="hidden" name="next" value="{{ next }}">
+    {% if error %}<div class="form-error" role="alert">{{ error }}</div>{% endif %}
+    <div class="form-field">
+        <label for="username">Логин</label>
+        <input id="username" name="username" type="text" autocomplete="username" required value="{{ username }}">
+    </div>
+    <div class="form-field">
+        <label for="password">Пароль</label>
+        <input id="password" name="password" type="password" autocomplete="current-password" required>
+    </div>
+    <button class="primary" type="submit">Войти</button>
+</form>
+<p class="auth-switch">Ещё нет аккаунта? <a href="/register">Зарегистрироваться</a></p>
+{% endblock %}

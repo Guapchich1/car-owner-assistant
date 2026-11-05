@@ -8,7 +8,8 @@
     <link rel="stylesheet" href="{{ url_for('static', path='style.css') }}?v={{ static_version('style.css') }}">
     <script src="{{ url_for('static', path='js/htmx.min.js') }}" defer></script>
 </head>
-<body>
+{# HTMX: токен — в заголовке, а скрытое поле не отправляем, иначе hx-get с hx-include покажет его в адресе. #}
+<body hx-headers='{"X-CSRF-Token": "{{ request.state.csrf_token }}"}' hx-params="not csrf_token">
     {% from "_icons.html" import icon %}
     {# Пункты меню: ключ, адрес, иконка, подпись. #}
     {% set nav_items = [
@@ -31,6 +32,13 @@
             {% endif %}
             {% endfor %}
         </nav>
+        <div class="topbar-user">
+            <span class="topbar-username">{{ user.username }}</span>
+            <form method="post" action="/logout">
+                {% include "_csrf_field.html" %}
+                <button class="secondary" type="submit">Выйти</button>
+            </form>
+        </div>
     </header>
     <div class="shell">
         <div class="breadcrumb">
