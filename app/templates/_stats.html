@@ -1,9 +1,10 @@
-{# Четыре плитки сводки: главная и расходы. #}
+{# Четыре плитки сводки: главная и расходы.
+   «Текущий пробег» на главной — из машины в базе (current_mileage), остальное — пример. #}
 {% from "_icons.html" import icon %}
 <div class="stats">
     <div class="stat">
         <div class="stat-top">Текущий пробег{{ icon("mileage") }}</div>
-        <strong>{{ vehicle.mileage | km }}</strong>
+        <strong>{{ current_mileage | default(vehicle.mileage) | km }}</strong>
         <small>Обновите после поездки</small>
     </div>
     <div class="stat">

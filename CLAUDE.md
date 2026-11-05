@@ -45,6 +45,8 @@
   в git) и data/catalog_full.json (все модели, не в git)
 - Запустить тесты: `python -m pytest`
 - Проверить код: `python -m ruff check .`
+- Проверить форматирование: `python -m ruff format --check .`
+  (исправить: `python -m ruff format .`)
 - Те же проверки автоматически запускаются на GitHub при каждом PR.
 
 ## VIN
@@ -67,7 +69,8 @@
 - В тестах настоящую LLM не вызываем, используем заглушку.
 
 ## Правила
-- Перед «готово» запусти `python -m pytest` и `python -m ruff check .` — всё должно проходить.
+- Перед «готово» запусти `python -m pytest`, `python -m ruff check .`
+  и `python -m ruff format --check .` — всё должно проходить.
 - Новая функция — новый тест.
 - Работай в ветке `feature/<имя>`, в main не коммить.
 - Одна задача — одна ветка — один PR.
