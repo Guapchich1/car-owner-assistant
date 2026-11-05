@@ -15,7 +15,7 @@ MAX_MILEAGE = 2_000_000
 # ZoneInfo("Europe/Moscow") на Windows без пакета tzdata не работает.
 MSK = timezone(timedelta(hours=3))
 
-# Поля формы добавления машины
+# Поля формы машины: добавление и редактирование
 FORM_FIELDS = ("brand", "model", "generation", "engine", "year", "mileage", "gearbox")
 
 
@@ -64,6 +64,35 @@ def form_options(
     }
 
 
+def values_from_car(car: Car) -> dict[str, str]:
+    """Значения формы из машины. У старых записей нет поколения и коробки."""
+    return {
+        "brand": car.make,
+        "model": car.model,
+        "generation": car.generation or "",
+        "engine": car.engine or "",
+        "year": str(car.year),
+        "mileage": str(car.mileage),
+        "gearbox": car.gearbox or "",
+    }
+
+
+def catalog_mismatches(car: Car) -> list[dict[str, str]]:
+    """Сохранённые значения, которые форма сбросит: их нет в справочнике."""
+    options = form_options(car.make, car.model, car.generation or "", car.engine or "")
+    fields = (
+        ("Марка", car.make, options["brand"]),
+        ("Модель", car.model, options["model"]),
+        ("Поколение", car.generation, options["generation"]),
+        ("Двигатель", car.engine, options["engine"]),
+    )
+    return [
+        {"title": title, "value": saved}
+        for title, saved, matched in fields
+        if saved and not matched
+    ]
+
+
 def _whole_number(value: str) -> int | None:
     """Целое неотрицательное число из строки; иначе None."""
     value = value.strip()
@@ -71,7 +100,7 @@ def _whole_number(value: str) -> int | None:
 
 
 def validate_car_form(values: dict[str, str]) -> tuple[dict, dict[str, str]]:
-    """Проверяет форму добавления машины.
+    """Проверяет форму машины.
 
     Возвращает данные для Car и ошибки по полям. Если ошибок нет,
     словарь ошибок пустой.

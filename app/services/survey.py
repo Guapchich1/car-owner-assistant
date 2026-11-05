@@ -365,6 +365,47 @@ def validate_survey_form(
     return data, {}
 
 
+def car_mismatch_warnings(survey: CarSurvey, car: Car) -> list[dict[str, str]]:
+    """Расхождения последнего ТО с машиной: её данные могли исправить после анкеты.
+
+    Для каждого — текст, поле формы анкеты, к которому ведёт ссылка,
+    и подпись под этим полем.
+    """
+    warnings = []
+    if (
+        survey.last_service_mileage is not None
+        and survey.last_service_mileage > car.mileage
+    ):
+        warnings.append(
+            {
+                "text": (
+                    f"В анкете пробег последнего ТО ({survey.last_service_mileage} км) "
+                    f"больше текущего пробега машины ({car.mileage} км). "
+                    "Проверьте, всё ли верно."
+                ),
+                "field": "last_service_mileage",
+                "hint": (
+                    f"Больше текущего пробега машины ({car.mileage:,} км)".replace(
+                        ",", " "
+                    )
+                ),
+            }
+        )
+    if survey.last_service_date and survey.last_service_date.year < car.year:
+        warnings.append(
+            {
+                "text": (
+                    f"В анкете дата последнего ТО ({survey.last_service_date.year} год) "
+                    f"раньше года выпуска машины ({car.year}). "
+                    "Проверьте, всё ли верно."
+                ),
+                "field": "last_service_date",
+                "hint": f"Раньше года выпуска машины ({car.year})",
+            }
+        )
+    return warnings
+
+
 def survey_warnings(survey: CarSurvey) -> list[str]:
     """Нестыковки в ответах. Только подсказка: сохранению и расчётам они не мешают."""
     km = survey.monthly_km

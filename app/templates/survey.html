@@ -91,12 +91,14 @@
                 <div class="form-grid">
                     <div class="form-field">
                         <label for="last_service_date">Дата</label>
-                        <input id="last_service_date" name="last_service_date" type="date" value="{{ values.last_service_date }}">
+                        <input id="last_service_date" name="last_service_date" type="date" value="{{ values.last_service_date }}"{% if "last_service_date" in mismatch_fields %} class="field-mismatch"{% endif %}>
+                        {% if mismatch_fields.last_service_date %}<div class="form-error">{{ mismatch_fields.last_service_date }}</div>{% endif %}
                         {{ field_error("last_service_date") }}
                     </div>
                     <div class="form-field">
                         <label for="last_service_mileage">Пробег, км</label>
-                        <input id="last_service_mileage" name="last_service_mileage" type="number" inputmode="numeric" min="0" step="1" value="{{ values.last_service_mileage }}">
+                        <input id="last_service_mileage" name="last_service_mileage" type="number" inputmode="numeric" min="0" step="1" value="{{ values.last_service_mileage }}"{% if "last_service_mileage" in mismatch_fields %} class="field-mismatch"{% endif %}>
+                        {% if mismatch_fields.last_service_mileage %}<div class="form-error">{{ mismatch_fields.last_service_mileage }}</div>{% endif %}
                         {{ field_error("last_service_mileage") }}
                     </div>
                 </div>
