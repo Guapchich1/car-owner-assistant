@@ -2,12 +2,13 @@
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from sqlalchemy.orm import Session
 from starlette.datastructures import FormData
 
 from app.models import LONG_TRIP_DISTANCES, MILEAGE_PERIODS, Car, CarSurvey
+from app.routers.cars import TargetCar
 from app.routers.pages import (
     NBSP,
     WORK_TYPES,
@@ -25,6 +26,7 @@ from app.services.survey import (
     REMINDER_MONTH_OPTIONS,
     SURVEY_BLOCKS,
     blank_values,
+    car_mismatch_warnings,
     has_long_trips,
     survey_warnings,
     validate_survey_form,
@@ -37,20 +39,9 @@ router = APIRouter(prefix="/cars/{car_id}/survey")
 NOT_ANSWERED = "Не указано"
 
 
-def get_target_car(car_id: int, session: DbSession) -> Car:
-    """Машина из адреса страницы; нет такой — 404."""
-    car = session.get(Car, car_id)
-    if car is None:
-        raise HTTPException(status_code=404, detail="Машина не найдена")
-    return car
-
-
 async def read_form(request: Request) -> FormData:
     """Форма целиком: у анкеты много полей, а галочки приходят списками."""
     return await request.form()
-
-
-TargetCar = Annotated[Car, Depends(get_target_car)]
 
 
 def form_context(session: Session, car: Car, values: dict, errors: dict) -> dict:
@@ -59,6 +50,7 @@ def form_context(session: Session, car: Car, values: dict, errors: dict) -> dict
         target_car=car,
         values=values,
         errors=errors,
+        mismatch_fields={},
         blocks=SURVEY_BLOCKS,
         distance_title=LONG_TRIP_DISTANCE_TITLE,
         distance_options=LONG_TRIP_DISTANCES,
@@ -173,6 +165,13 @@ def edit_survey(request: Request, session: DbSession, car: TargetCar) -> HTMLRes
     """Форма анкеты с сохранёнными ответами."""
     values = values_from_survey(car.survey) if car.survey else blank_values()
     context = form_context(session, car, values, {})
+    # Красным — поля, которые не сходятся с машиной, пока их не исправят.
+    # При ошибке сохранения подсветка не нужна: те же поля покажет проверка формы
+    if car.survey:
+        context["mismatch_fields"] = {
+            warning["field"]: warning["hint"]
+            for warning in car_mismatch_warnings(car.survey, car)
+        }
     return templates.TemplateResponse(request, "survey.html", context)
 
 
