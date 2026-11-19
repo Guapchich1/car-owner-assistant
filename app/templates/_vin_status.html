@@ -1,0 +1,16 @@
+{# Сообщения под полем VIN и остаток проверок на сегодня.
+   После «Заполнить по VIN» обновляется отдельно (hx-swap-oob). #}
+<div class="vin-status" id="vin-status" aria-live="polite"{% if oob %} hx-swap-oob="true"{% endif %}>
+    {% if errors.vin %}
+    <div class="form-error" id="vin-error">{{ errors.vin }}</div>
+    {% elif vin_filled %}
+    <div class="vin-filled">Данные по VIN подставлены — проверьте их и при необходимости исправьте.</div>
+    {% endif %}
+    {% for note in vin_notes %}
+    <div class="vin-note">{{ note }}</div>
+    {% endfor %}
+    <small class="subtext" id="vin-left">Проверок VIN на сегодня: осталось {{ vin_left }} из {{ vin_limit }}. Повторная проверка своего VIN не учитывается.</small>
+    {% if add_mode == "vin" %}
+    <small class="subtext">Нет VIN под рукой? <a href="/cars/new?by=manual">Добавить машину вручную</a></small>
+    {% endif %}
+</div>

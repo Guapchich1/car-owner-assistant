@@ -1,4 +1,4 @@
-"""Таблицы базы данных: пользователи и сессии, машины, журнал работ и анкета."""
+"""Таблицы базы данных: пользователи, машины, журнал работ, анкета и VIN."""
 
 from datetime import date, datetime, timedelta, timezone
 
@@ -231,8 +231,9 @@ class Car(Base):
     gearbox: Mapped[str | None] = mapped_column(String(20))  # код из GEARBOXES
     year: Mapped[int] = mapped_column(Integer)
     engine: Mapped[str | None] = mapped_column(String(50))
-    # Необязательный: машин без VIN может быть несколько, NULL не конфликтует
-    vin: Mapped[str | None] = mapped_column(String(17), unique=True)
+    # Необязательный и не уникальный: одну машину могут добавить разные
+    # пользователи (продали машину, семейная машина)
+    vin: Mapped[str | None] = mapped_column(String(17), index=True)
     mileage: Mapped[int] = mapped_column(Integer)  # текущий пробег, км
     # Дата, на которую указан пробег (по Москве); меняется вместе с пробегом
     mileage_date: Mapped[date] = mapped_column(Date, default=msk_today)
@@ -391,3 +392,43 @@ class CarSurvey(Base):
     )
 
     car: Mapped[Car] = relationship(back_populates="survey")
+
+
+class VinDecode(Base):
+    """Расшифровка VIN от apipoint — общая для всех пользователей.
+
+    Запрос платный, поэтому VIN запрашиваем один раз. Храним только
+    result.vindecode: цена запроса и баланс счёта сюда не попадают.
+    """
+
+    __tablename__ = "vin_decodes"
+
+    vin: Mapped[str] = mapped_column(String(17), primary_key=True)
+    found: Mapped[bool] = mapped_column(Boolean)  # False — apipoint не нашёл VIN
+    response: Mapped[dict] = mapped_column(JSON)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.current_timestamp()
+    )
+
+
+class VinRequest(Base):
+    """Проверка VIN пользователем — для лимита проверок в сутки.
+
+    Учитывается и проверка, ответ на которую взят из vin_decodes: иначе по
+    лимиту было бы видно, что этот VIN уже кто-то проверял.
+    """
+
+    __tablename__ = "vin_requests"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
+    vin: Mapped[str] = mapped_column(String(17))
+    # Пользователь получил ответ (найден или нет); False — ошибка сервиса
+    answered: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default=false()
+    )
+    created_at: Mapped[datetime] = mapped_column(  # UTC без часового пояса
+        DateTime, server_default=func.current_timestamp()
+    )

@@ -83,14 +83,14 @@ def test_car_shows_its_records(session):
     assert [r.title for r in saved.records] == ["Масло", "Колодки"]
 
 
-def test_same_vin_twice_is_rejected(session):
-    """Два раза один VIN сохранить нельзя."""
-    session.add(make_car(vin="XW8ZZZ1ZZLG000001"))
+def test_same_vin_twice_allowed(session):
+    """Один VIN у двух машин: одну машину могут добавить разные пользователи."""
+    session.add_all(
+        [make_car(vin="XW8ZZZ1ZZLG000001"), make_car(vin="XW8ZZZ1ZZLG000001")]
+    )
     session.commit()
 
-    session.add(make_car(vin="XW8ZZZ1ZZLG000001"))
-    with pytest.raises(IntegrityError):
-        session.commit()
+    assert len(session.scalars(select(Car)).all()) == 2
 
 
 def test_cars_without_vin_allowed(session):
@@ -382,6 +382,66 @@ def test_migration_0005_adds_source_and_mileage_date(db_url):
     engine.dispose()
 
 
+def test_migration_0006_vin_tables_and_not_unique_vin(db_url):
+    """VIN машины больше не уникален, появились кэш расшифровок и журнал запросов."""
+    config = Config(ROOT / "alembic.ini")
+    config.set_main_option("sqlalchemy.url", db_url)
+    engine = create_engine(db_url)
+
+    command.upgrade(config, "0005")
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                "INSERT INTO cars (make, model, year, mileage, vin, gearbox, "
+                "mileage_date) VALUES ('Lada', 'Granta', 2020, 84500, "
+                "'XTA21900000000001', 'robot', '2026-10-26')"
+            )
+        )
+        connection.execute(
+            text(
+                "INSERT INTO service_records "
+                "(car_id, date, mileage, category, title, amount) "
+                "VALUES (1, '2026-01-01', 1000, 'oil', 'Масло', 1000)"
+            )
+        )
+
+    command.upgrade(config, "0006")
+
+    tables = set(inspect(engine).get_table_names())
+    assert {"vin_decodes", "vin_requests"} <= tables
+    indexes = {i["name"] for i in inspect(engine).get_indexes("cars")}
+    assert "ix_cars_vin" in indexes
+    # Второй машине тот же VIN — можно; данные и прежние ограничения на месте
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                "INSERT INTO cars (make, model, year, mileage, vin, mileage_date) "
+                "VALUES ('Lada', 'Granta', 2020, 1, 'XTA21900000000001', '2026-10-26')"
+            )
+        )
+        records = connection.execute(
+            text("SELECT count(*) FROM service_records")
+        ).scalar()
+    assert records == 1
+    with pytest.raises(IntegrityError), engine.begin() as connection:
+        connection.execute(text("UPDATE cars SET gearbox = 'DSG'"))
+
+    with engine.begin() as connection:
+        connection.execute(text("DELETE FROM cars WHERE id = 2"))
+    command.downgrade(config, "0005")
+
+    tables = set(inspect(engine).get_table_names())
+    assert not {"vin_decodes", "vin_requests"} & tables
+    with pytest.raises(IntegrityError), engine.begin() as connection:
+        connection.execute(
+            text(
+                "INSERT INTO cars (make, model, year, mileage, vin, mileage_date) "
+                "VALUES ('Kia', 'Rio', 2018, 1, 'XTA21900000000001', '2026-10-26')"
+            )
+        )
+    engine.dispose()
+
+
 def test_migrated_schema_matches_models(db_url):
     """После миграций модели и база совпадают: новой миграции не требуется."""
     config = Config(ROOT / "alembic.ini")
@@ -405,6 +465,8 @@ def test_migrations_create_tables(db_url):
         "car_surveys",
         "users",
         "user_sessions",
+        "vin_decodes",
+        "vin_requests",
     } <= tables
     columns = {c["name"] for c in inspect(engine).get_columns("cars")}
     assert {"generation", "gearbox", "owner_id"} <= columns

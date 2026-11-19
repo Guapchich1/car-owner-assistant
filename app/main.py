@@ -3,9 +3,14 @@
 from pathlib import Path
 from urllib.parse import urlencode
 
+from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, Request
 from fastapi.responses import RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
+
+# Ключи из .env (APIPOINT_TOKEN) — до импорта модулей приложения.
+# Переменные, уже заданные в окружении, .env не перезаписывает
+load_dotenv()
 
 from app.routers import auth, cars, pages, records, survey
 from app.routers.pages import get_current_user, templates, verify_csrf
