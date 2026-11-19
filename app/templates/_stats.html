@@ -1,16 +1,15 @@
-{# Четыре плитки сводки: главная и расходы.
-   «Текущий пробег» на главной — из машины в базе (current_mileage), остальное — пример. #}
+{# Четыре плитки сводки: главная и расходы. Всё — из базы; «До замены масла» — после плана ТО. #}
 {% from "_icons.html" import icon %}
 <div class="stats">
     <div class="stat">
         <div class="stat-top">Текущий пробег{{ icon("mileage") }}</div>
-        <strong>{{ current_mileage | default(vehicle.mileage) | km }}</strong>
+        <strong>{{ car.mileage | km if car else "—" }}</strong>
         <small>Обновите после поездки</small>
     </div>
     <div class="stat">
         <div class="stat-top">До замены масла{{ icon("wrench") }}</div>
-        <strong>{{ (oil_due - vehicle.mileage) | km if oil_due > vehicle.mileage else "Пора на ТО" }}</strong>
-        <small>Регламент можно настроить</small>
+        <strong>—</strong>
+        <small>Появится с планом ТО</small>
     </div>
     <div class="stat">
         <div class="stat-top">Расходы за месяц{{ icon("chart") }}</div>

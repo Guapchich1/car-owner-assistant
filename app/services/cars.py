@@ -1,19 +1,29 @@
 """Машина пользователя: списки формы по справочнику и проверка введённых данных."""
 
 import re
-from datetime import UTC, datetime, timedelta, timezone
+from datetime import UTC, datetime
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models import GEARBOXES, Car, User
+from app.models import GEARBOXES, MSK, Car, ServiceRecord, User
 from app.services import catalog
 
 MAX_MILEAGE = 2_000_000
 
-# В Москве круглый год UTC+3: летнего времени нет с 2014 года.
-# ZoneInfo("Europe/Moscow") на Windows без пакета tzdata не работает.
-MSK = timezone(timedelta(hours=3))
+NBSP = " "  # неразрывный пробел
+
+
+def format_number(value: float) -> str:
+    """Число с разделителем разрядов: 84 500."""
+    if value == int(value):
+        return f"{int(value):,}".replace(",", NBSP)
+    return f"{value:,.2f}".replace(",", NBSP).replace(".", ",")
+
+
+def format_km(value: float) -> str:
+    return f"{format_number(value)}{NBSP}км"
+
 
 # Поля формы машины: добавление и редактирование
 FORM_FIELDS = ("brand", "model", "generation", "engine", "year", "mileage", "gearbox")
@@ -99,11 +109,14 @@ def _whole_number(value: str) -> int | None:
     return int(value) if re.fullmatch(r"\d{1,9}", value) else None
 
 
-def validate_car_form(values: dict[str, str]) -> tuple[dict, dict[str, str]]:
+def validate_car_form(
+    values: dict[str, str], top_record: ServiceRecord | None = None
+) -> tuple[dict, dict[str, str]]:
     """Проверяет форму машины.
 
-    Возвращает данные для Car и ошибки по полям. Если ошибок нет,
-    словарь ошибок пустой.
+    top_record — запись журнала с наибольшим пробегом: пробег машины
+    не может быть меньше. Возвращает данные для Car и ошибки по полям.
+    Если ошибок нет, словарь ошибок пустой.
     """
     options = form_options(
         values.get("brand", ""),
@@ -134,6 +147,11 @@ def validate_car_form(values: dict[str, str]) -> tuple[dict, dict[str, str]]:
     mileage = _whole_number(values.get("mileage", ""))
     if mileage is None or mileage > MAX_MILEAGE:
         errors["mileage"] = "Пробег — целое число от 0 до 2 000 000 км"
+    elif top_record and mileage < top_record.mileage:
+        errors["mileage"] = (
+            f"В записи от {top_record.date:%d.%m.%Y} пробег "
+            f"{format_km(top_record.mileage)} — пробег машины не может быть меньше"
+        )
 
     gearbox = values.get("gearbox", "")
     if gearbox not in GEARBOXES:

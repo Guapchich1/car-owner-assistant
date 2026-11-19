@@ -3,10 +3,10 @@ from datetime import date, datetime
 import pytest
 from sqlalchemy import select
 
-from app.models import Car, CarSurvey, ServiceRecord
+from app.models import Car, CarSurvey, ServiceRecord, msk_today
 from app.routers.pages import format_msk_datetime
 from app.services import catalog
-from app.services.cars import form_options, to_msk, validate_car_form
+from app.services.cars import form_options, format_km, to_msk, validate_car_form
 
 # Правильно заполненная форма: машина из выборки справочника
 FORM = {
@@ -57,7 +57,7 @@ def test_sidebar_without_car_on_every_page(client):
 
 
 def test_index_with_car_shows_card_from_db(client, car):
-    """С машиной карточка показывает данные из базы, остальное помечено как пример."""
+    """С машиной карточка показывает данные из базы, пометки «пример» нет."""
     html = client.get("/").text
 
     for text in (
@@ -69,19 +69,29 @@ def test_index_with_car_shows_card_from_db(client, car):
         "84 500 км",
         "26.10.2026 01:30 (МСК)",
         "/static/img/car.png",
-        "Пример — заработает после задач 3.1 и 4.1",
     ):
         assert text in html
     assert "Добавьте машину" not in html
     assert "Škoda" not in html
+    assert "Пример — заработает" not in html
 
 
-@pytest.mark.parametrize("url", ["/history", "/maintenance", "/expenses"])
-def test_demo_pages_marked_as_example(client, car, url):
-    """Журнал, план ТО и расходы — пример с пометкой, карточка — из базы."""
+@pytest.mark.parametrize("url", ["/", "/history", "/expenses"])
+def test_journal_pages_not_marked_as_example(client, car, url):
+    """Главная, журнал и расходы — из базы, без пометки «пример» и без demo.json."""
     html = client.get(url).text
 
-    assert "Пример — заработает после задач 3.1 и 4.1" in html
+    assert "Пример — заработает" not in html
+    assert "Škoda" not in html
+    assert "VAG Service" not in html
+    assert "Lada Granta" in html
+
+
+def test_maintenance_marked_as_example(client, car):
+    """План ТО пока остаётся примером и помечен."""
+    html = client.get("/maintenance").text
+
+    assert "Пример — заработает после задачи 4.1" in html
     assert "Lada Granta" in html
 
 
@@ -89,14 +99,15 @@ def test_demo_pages_marked_as_example(client, car, url):
     "url", ["/", "/history", "/maintenance", "/expenses", "/assistant"]
 )
 def test_sidebar_watch_block_and_footer(client, car, url):
-    """Блок «На контроле» помечен как пример, подвал говорит правду о базе."""
+    """Блок «На контроле» — заглушка без статуса из примера, подвал говорит правду."""
     html = client.get(url).text
 
     watch = html.split("На контроле", 1)[1].split("</section>", 1)[0]
-    assert "Пример — заработает после задач 3.1 и 4.1" in watch
+    assert "План ТО по регламенту модели появится позже" in watch
+    assert "status-pill" not in watch
     footer = html.split('<footer class="footer">', 1)[1]
-    assert "Машина хранится в базе данных" in footer
-    assert "база данных, VIN-декодер и ИИ-помощник пока не подключены" not in footer
+    assert "Машина и журнал работ хранятся в базе данных" in footer
+    assert "план ТО — пока пример" in footer
 
 
 def test_moscow_time():
@@ -411,6 +422,69 @@ def test_update_can_lower_mileage(client, session, car):
 
     session.expire_all()
     assert car.mileage == 100
+
+
+def add_record(session, car, **fields):
+    data = {
+        "date": date(2026, 1, 10),
+        "mileage": 90000,
+        "category": "oil",
+        "title": "Масло",
+        "amount": 1000,
+        **fields,
+    }
+    session.add(ServiceRecord(car=car, **data))
+    session.commit()
+
+
+def test_mileage_date_set_on_create(client, session):
+    """Новая машина: пробег указан на сегодня (по Москве)."""
+    client.post("/cars/new", data=FORM)
+
+    [car] = cars_in(session)
+    assert car.mileage_date == msk_today()
+
+
+def test_mileage_date_changes_only_with_mileage(client, session, car):
+    """Дата пробега меняется, только если пробег изменился."""
+    car.mileage_date = date(2026, 1, 1)
+    session.commit()
+
+    client.post(f"/cars/{car.id}/edit", data=form(mileage="84500"))
+    session.expire_all()
+    assert car.mileage_date == date(2026, 1, 1)
+
+    client.post(f"/cars/{car.id}/edit", data=form(mileage="85000"))
+    session.expire_all()
+    assert car.mileage_date == msk_today()
+
+
+def test_car_mileage_not_below_journal(client, session, car):
+    """Пробег машины не меньше наибольшего пробега в журнале: ошибка с записью."""
+    add_record(session, car, date=date(2025, 3, 5), mileage=100000)
+    add_record(session, car, date=date(2026, 1, 10), mileage=90000)
+
+    response = client.post(f"/cars/{car.id}/edit", data=form(mileage="99999"))
+
+    assert response.status_code == 422
+    assert (
+        f"В записи от 05.03.2025 пробег {format_km(100000)} — "
+        "пробег машины не может быть меньше" in response.text
+    )
+    session.expire_all()
+    assert car.model == "Granta"
+
+
+def test_car_mileage_equal_to_journal_is_ok(client, session, car):
+    add_record(session, car, mileage=100000)
+
+    response = client.post(
+        f"/cars/{car.id}/edit", data=form(mileage="100000"), follow_redirects=False
+    )
+
+    assert response.status_code == 303
+    session.expire_all()
+    assert car.mileage == 100000
 
 
 def test_saved_message_only_after_saving(client, car):
