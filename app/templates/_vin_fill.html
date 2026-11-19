@@ -1,0 +1,6 @@
+{# Ответ кнопки «Заполнить по VIN». Удалось — блок #car-details целиком (открытый
+   и заполненный) и сообщение под VIN (hx-swap-oob). Не удалось — только сообщение:
+   обработчик ставит HX-Reswap: none, и поля формы остаются как были. #}
+{% set oob = true %}
+{% if vin_filled %}{% include "_car_details.html" %}{% endif %}
+{% include "_vin_status.html" %}

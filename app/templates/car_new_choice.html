@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+
+{% block title %}Добавить машину — АвтоГид AI{% endblock %}
+
+{% block content %}
+<div class="page-heading">
+    <div>
+        <h1>Добавить машину</h1>
+        <p>Выберите, как удобнее указать характеристики автомобиля</p>
+    </div>
+</div>
+
+<div class="add-choice">
+    <a class="card add-option add-option-main" href="/cars/new?by=vin">
+        <span class="add-option-badge">Рекомендуем</span>
+        <span class="add-option-icon">{{ icon("bolt") }}</span>
+        <span class="add-option-title">По VIN</span>
+        <span class="add-option-text">Введите 17 символов из СТС или ПТС — марку, модель, поколение, двигатель и год подставим сами. Вам останется проверить данные.</span>
+        <span class="add-option-meta">Запросов на сегодня: осталось {{ vin_left }} из {{ vin_limit }}</span>
+        <span class="add-option-action">Ввести VIN {{ icon("arrow") }}</span>
+    </a>
+    <a class="card add-option" href="/cars/new?by=manual">
+        <span class="add-option-icon">{{ icon("car") }}</span>
+        <span class="add-option-title">Вручную</span>
+        <span class="add-option-text">Выберите машину из справочника по шагам: марка, модель, поколение и двигатель. Подходит, если VIN нет под рукой.</span>
+        <span class="add-option-meta">Без ограничений</span>
+        <span class="add-option-action">Выбрать из справочника {{ icon("arrow") }}</span>
+    </a>
+</div>
+{% endblock %}

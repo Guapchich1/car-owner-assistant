@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.models import GEARBOXES, MSK, Car, ServiceRecord, User
 from app.services import catalog
+from app.services.vin import FORMAT_ERROR, normalize_vin
 
 MAX_MILEAGE = 2_000_000
 
@@ -26,7 +27,16 @@ def format_km(value: float) -> str:
 
 
 # Поля формы машины: добавление и редактирование
-FORM_FIELDS = ("brand", "model", "generation", "engine", "year", "mileage", "gearbox")
+FORM_FIELDS = (
+    "vin",
+    "brand",
+    "model",
+    "generation",
+    "engine",
+    "year",
+    "mileage",
+    "gearbox",
+)
 
 
 def get_car(session: Session, user: User) -> Car | None:
@@ -77,6 +87,7 @@ def form_options(
 def values_from_car(car: Car) -> dict[str, str]:
     """Значения формы из машины. У старых записей нет поколения и коробки."""
     return {
+        "vin": car.vin or "",
         "brand": car.make,
         "model": car.model,
         "generation": car.generation or "",
@@ -157,6 +168,12 @@ def validate_car_form(
     if gearbox not in GEARBOXES:
         errors["gearbox"] = "Выберите коробку передач из списка"
 
+    # VIN необязательный; если введён — тот же формат, что для расшифровки
+    raw_vin = values.get("vin", "").strip()
+    vin = normalize_vin(raw_vin) if raw_vin else None
+    if raw_vin and vin is None:
+        errors["vin"] = FORMAT_ERROR
+
     if errors:
         return {}, errors
     car = {
@@ -167,5 +184,6 @@ def validate_car_form(
         "year": year,
         "mileage": mileage,
         "gearbox": gearbox,
+        "vin": vin,
     }
     return car, {}

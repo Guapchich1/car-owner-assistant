@@ -27,9 +27,20 @@
     <label for="generation">Поколение</label>
     <select id="generation" name="generation" required {{ htmx() }}{% if not options.generations %} disabled{% endif %}>
         <option value="">{{ "Выберите поколение" if options.generations else "Сначала выберите модель" }}</option>
+        {% macro generation_option(g) %}<option value="{{ g.name }}"{% if generation and g.name == generation.name %} selected{% endif %}>{{ g.name }}</option>{% endmacro %}
+        {% if vin_candidates %}
+        {# По VIN подошло несколько поколений: они первыми, но список остаётся полным #}
+        <optgroup label="Подходят по VIN">
+            {% for g in options.generations if g.name in vin_candidates %}{{ generation_option(g) }}{% endfor %}
+        </optgroup>
+        <optgroup label="Другие поколения">
+            {% for g in options.generations if g.name not in vin_candidates %}{{ generation_option(g) }}{% endfor %}
+        </optgroup>
+        {% else %}
         {% for g in options.generations %}
-        <option value="{{ g.name }}"{% if generation and g.name == generation.name %} selected{% endif %}>{{ g.name }}</option>
+        {{ generation_option(g) }}
         {% endfor %}
+        {% endif %}
     </select>
     {{ field_error("generation") }}
 </div>

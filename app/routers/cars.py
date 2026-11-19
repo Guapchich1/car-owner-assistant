@@ -1,4 +1,4 @@
-"""Машина: добавление вручную из справочника, редактирование и удаление."""
+"""Машина: добавление из справочника или по VIN, редактирование и удаление."""
 
 from typing import Annotated
 
@@ -19,6 +19,15 @@ from app.services.cars import (
     values_from_car,
 )
 from app.services.records import top_record
+from app.services.vin import (
+    DAILY_LIMIT,
+    FORMAT_ERROR,
+    VinError,
+    decode_vin,
+    match_catalog,
+    normalize_vin,
+    requests_left,
+)
 
 router = APIRouter(prefix="/cars")
 
@@ -55,9 +64,19 @@ def fields_context(values: dict[str, str], errors: dict[str, str]) -> dict:
     }
 
 
+def vin_context(session: Session, user: User) -> dict:
+    """Остаток запросов по VIN на сегодня — подпись у кнопки «Заполнить по VIN»."""
+    return {"vin_left": requests_left(session, user), "vin_limit": DAILY_LIMIT}
+
+
 # Поле формы — строка, по умолчанию пустая: проверку и понятные сообщения
 # об ошибках делает validate_car_form, а не FastAPI
 FormField = Annotated[str, Form()]
+
+
+# Способы добавления машины: адрес /cars/new?by=…
+ADD_MODES = ("vin", "manual")
+VIN_REQUIRED = "Введите VIN. Если его нет под рукой — добавьте машину вручную."
 
 
 def render_form(
@@ -66,11 +85,24 @@ def render_form(
     user: User,
     values: dict[str, str],
     errors: dict[str, str],
+    mode: str,
     status_code: int = 200,
+    details_hidden: bool = False,
 ) -> HTMLResponse:
+    """Форма добавления: mode — vin (с полем VIN) или manual (только справочник).
+
+    details_hidden — по VIN поля машины скрыты, пока VIN не расшифрован.
+    """
     context = page_context("car", session, user)
     context.update(fields_context(values, errors))
-    context.update(form_action="/cars/new", submit_label="Сохранить машину")
+    context.update(vin_context(session, user))
+    context.update(
+        form_action="/cars/new",
+        submit_label="Сохранить машину",
+        add_mode=mode,
+        vin_mode=mode == "vin",
+        details_hidden=details_hidden,
+    )
     return templates.TemplateResponse(
         request, "car_new.html", context, status_code=status_code
     )
@@ -87,7 +119,9 @@ def render_edit_form(
 ) -> HTMLResponse:
     context = page_context("car", session, user)
     context.update(fields_context(values, errors))
+    context.update(vin_context(session, user))
     context.update(
+        vin_mode=True,
         target_car=car,
         mismatches=catalog_mismatches(car),
         form_action=f"/cars/{car.id}/edit",
@@ -99,11 +133,22 @@ def render_edit_form(
 
 
 @router.get("/new", response_class=HTMLResponse)
-def new_car(request: Request, session: DbSession, user: CurrentUser) -> Response:
-    """Форма добавления машины. Машина пока одна: если она есть — на главную."""
+def new_car(
+    request: Request, session: DbSession, user: CurrentUser, by: str = ""
+) -> Response:
+    """Добавление машины: без by — выбор способа (по VIN или вручную), с by — форма.
+
+    Машина пока одна: если она есть — на главную.
+    """
     if get_car(session, user):
         return RedirectResponse("/", status_code=303)
-    return render_form(request, session, user, form_values({}), {})
+    if by not in ADD_MODES:
+        context = page_context("car", session, user)
+        context.update(vin_context(session, user))
+        return templates.TemplateResponse(request, "car_new_choice.html", context)
+    return render_form(
+        request, session, user, form_values({}), {}, by, details_hidden=by == "vin"
+    )
 
 
 @router.post("/new", response_class=HTMLResponse)
@@ -111,6 +156,8 @@ def create_car(
     request: Request,
     session: DbSession,
     user: CurrentUser,
+    by: FormField = "",
+    vin: FormField = "",
     brand: FormField = "",
     model: FormField = "",
     generation: FormField = "",
@@ -123,6 +170,7 @@ def create_car(
     if get_car(session, user):
         return RedirectResponse("/", status_code=303)
     values = {
+        "vin": vin,
         "brand": brand,
         "model": model,
         "generation": generation,
@@ -132,8 +180,14 @@ def create_car(
         "gearbox": gearbox,
     }
     data, errors = validate_car_form(values)
+    if by == "vin" and not vin.strip():
+        errors["vin"] = VIN_REQUIRED
     if errors:
-        return render_form(request, session, user, values, errors, status_code=422)
+        # Способ добавления сохраняется; если его нет — по тому, введён ли VIN
+        mode = by if by in ADD_MODES else ("vin" if vin.strip() else "manual")
+        return render_form(
+            request, session, user, values, errors, mode, status_code=422
+        )
     car = Car(**data, owner_id=user.id, mileage_date=msk_today())
     session.add(car)
     try:
@@ -153,6 +207,72 @@ def car_fields(request: Request) -> HTMLResponse:
     return templates.TemplateResponse(request, "_car_fields.html", context)
 
 
+@router.post("/new/vin", response_class=HTMLResponse)
+def fill_by_vin(
+    request: Request,
+    session: DbSession,
+    user: CurrentUser,
+    by: FormField = "",
+    vin: FormField = "",
+    brand: FormField = "",
+    model: FormField = "",
+    generation: FormField = "",
+    engine: FormField = "",
+    year: FormField = "",
+    mileage: FormField = "",
+    gearbox: FormField = "",
+) -> HTMLResponse:
+    """Кнопка «Заполнить по VIN» (HTMX) — для добавления и редактирования.
+
+    Удалось — блок #car-details целиком: открытый, с подставленными значениями
+    (пробег — как был введён), и сообщение под VIN (hx-swap-oob). Не удалось —
+    только сообщение, поля формы не меняются. Сохраняет форма.
+    """
+    add_mode = by if by in ADD_MODES else ""
+    values = {
+        "mileage": mileage,
+        "vin": vin,
+        "brand": brand,
+        "model": model,
+        "generation": generation,
+        "engine": engine,
+        "year": year,
+        "gearbox": gearbox,
+    }
+    errors, notes, candidates, filled = {}, [], [], False
+    normalized = normalize_vin(vin)
+    if normalized is None:
+        errors["vin"] = FORMAT_ERROR
+    else:
+        values["vin"] = normalized
+        try:
+            matched = match_catalog(decode_vin(session, user, normalized))
+        except VinError as exc:
+            errors["vin"] = exc.message
+        else:
+            filled = True
+            gearbox = matched["values"].pop("gearbox")
+            values.update(matched["values"])
+            if gearbox:
+                values["gearbox"] = gearbox
+            notes, candidates = matched["notes"], matched["candidates"]
+    # В errors может быть только vin: списки марки и модели ошибок не показывают
+    context = fields_context(values, errors)
+    context.update(vin_context(session, user))
+    context.update(
+        add_mode=add_mode,
+        submit_label="Сохранить машину" if add_mode else "Сохранить изменения",
+        vin_notes=notes,
+        vin_filled=filled,
+        vin_candidates=candidates,
+    )
+    response = templates.TemplateResponse(request, "_vin_fill.html", context)
+    if not filled:
+        # Поля не трогаем: HTMX применит только сообщение (hx-swap-oob)
+        response.headers["HX-Reswap"] = "none"
+    return response
+
+
 @router.get("/{car_id}/edit", response_class=HTMLResponse)
 def edit_car(
     request: Request, session: DbSession, user: CurrentUser, car: TargetCar
@@ -167,6 +287,7 @@ def update_car(
     session: DbSession,
     user: CurrentUser,
     car: TargetCar,
+    vin: FormField = "",
     brand: FormField = "",
     model: FormField = "",
     generation: FormField = "",
@@ -177,6 +298,7 @@ def update_car(
 ) -> Response:
     """Сохраняет изменения. При ошибке форма возвращается с введёнными данными."""
     values = {
+        "vin": vin,
         "brand": brand,
         "model": model,
         "generation": generation,
