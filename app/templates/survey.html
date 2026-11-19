@@ -39,6 +39,7 @@
 <div class="callout">{{ icon("book") }}Ответы помогут в будущем точнее подсказывать сроки ТО и проверки машины. Не больше 15 вопросов, у большинства есть варианты ответа. Любой вопрос можно пропустить, а ответы — изменить позже.</div>
 
 <form class="car-form survey-form" method="post" action="/cars/{{ target_car.id }}/survey/edit">
+    {% include "_csrf_field.html" %}
     {% if errors %}
     <div class="form-error" role="alert">Проверьте поля формы — некоторые заполнены неверно.</div>
     {% endif %}
