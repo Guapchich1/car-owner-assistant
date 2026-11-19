@@ -80,12 +80,7 @@
                 </section>
                 <section class="aside-card">
                     <h3 class="aside-title">{{ icon("shield") }}На контроле</h3>
-                    <p class="subtext">Пример — заработает после задач 3.1 и 4.1.</p>
-                    <div class="health">
-                        <strong>Обслуживание</strong>
-                        <span class="status-pill{% if oil_soon %} warn{% endif %}">{{ "Скоро ТО" if oil_due > vehicle.mileage else "Пора на ТО" }}</span>
-                    </div>
-                    <p>Интервалы задаются вручную. Сверяйте план с регламентом вашего автомобиля.</p>
+                    <p>План ТО по регламенту модели появится позже. Пока сверяйтесь с руководством вашего автомобиля.</p>
                     <a class="aside-link" href="/maintenance">Открыть план ТО {{ icon("right") }}</a>
                 </section>
                 <section class="aside-card">
@@ -99,7 +94,7 @@
             </main>
         </div>
         <footer class="footer">
-            <span>© 2026 АвтоГид AI · Машина хранится в базе данных; журнал, расходы и план ТО — пока пример. VIN-декодер и ИИ-помощник пока не подключены.</span>
+            <span>© 2026 АвтоГид AI · Машина и журнал работ хранятся в базе данных; план ТО — пока пример. VIN-декодер и ИИ-помощник пока не подключены.</span>
             <span>Сделано для спокойных поездок</span>
         </footer>
     </div>

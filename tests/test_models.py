@@ -7,7 +7,7 @@ from alembic.config import Config
 from sqlalchemy import create_engine, inspect, select, text
 from sqlalchemy.exc import IntegrityError
 
-from app.models import Car, ServiceRecord
+from app.models import Car, ServiceRecord, msk_today
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -126,6 +126,24 @@ def test_unknown_category_is_rejected(session):
     session.add(make_record(make_car(), category="tuning"))
     with pytest.raises(IntegrityError):
         session.commit()
+
+
+def test_record_source_default_and_check(session):
+    """Источник записи по умолчанию — «вручную»; не из списка — нельзя."""
+    session.add(make_record(make_car()))
+    session.commit()
+    assert session.scalars(select(ServiceRecord)).one().source == "manual"
+
+    session.add(make_record(make_car(), source="excel"))
+    with pytest.raises(IntegrityError):
+        session.commit()
+
+
+def test_car_mileage_date_defaults_to_today(session):
+    session.add(make_car())
+    session.commit()
+
+    assert session.scalars(select(Car)).one().mileage_date == msk_today()
 
 
 def test_record_without_existing_car_is_rejected(session):
@@ -303,6 +321,64 @@ def test_migration_0004_adds_users_sessions_and_owner(db_url):
     assert not {"users", "user_sessions"} & tables
     assert "owner_id" not in {c["name"] for c in inspect(engine).get_columns("cars")}
     assert (count("cars"), count("car_surveys"), count("service_records")) == (3, 1, 1)
+    engine.dispose()
+
+
+def test_migration_0005_adds_source_and_mileage_date(db_url):
+    """Старые записи — «вручную», дата пробега старых машин — день добавления по МСК."""
+    config = Config(ROOT / "alembic.ini")
+    config.set_main_option("sqlalchemy.url", db_url)
+    engine = create_engine(db_url)
+
+    command.upgrade(config, "0004")
+    with engine.begin() as connection:
+        # 22:30 UTC 25 октября — уже 26 октября по Москве
+        connection.execute(
+            text(
+                "INSERT INTO cars (make, model, year, mileage, gearbox, created_at) "
+                "VALUES ('Lada', 'Granta', 2020, 84500, 'robot', "
+                "'2026-10-25 22:30:00')"
+            )
+        )
+        connection.execute(
+            text("INSERT INTO car_surveys (car_id, monthly_km) VALUES (1, 1000)")
+        )
+        connection.execute(
+            text(
+                "INSERT INTO service_records "
+                "(car_id, date, mileage, category, title, amount) "
+                "VALUES (1, '2026-01-01', 1000, 'oil', 'Масло', 1000)"
+            )
+        )
+
+    command.upgrade(config, "0005")
+
+    with engine.connect() as connection:
+        mileage_date = connection.execute(
+            text("SELECT mileage_date FROM cars")
+        ).scalar()
+        source = connection.execute(text("SELECT source FROM service_records")).scalar()
+        surveys = connection.execute(text("SELECT count(*) FROM car_surveys")).scalar()
+    assert (mileage_date, source, surveys) == ("2026-10-26", "manual", 1)
+    # Ограничения на месте: источник из списка, дата пробега обязательна,
+    # прежняя проверка коробки не потерялась
+    with pytest.raises(IntegrityError), engine.begin() as connection:
+        connection.execute(text("UPDATE service_records SET source = 'excel'"))
+    with pytest.raises(IntegrityError), engine.begin() as connection:
+        connection.execute(text("UPDATE cars SET mileage_date = NULL"))
+    with pytest.raises(IntegrityError), engine.begin() as connection:
+        connection.execute(text("UPDATE cars SET gearbox = 'DSG'"))
+
+    command.downgrade(config, "0004")
+    columns = {c["name"] for c in inspect(engine).get_columns("cars")}
+    assert "mileage_date" not in columns
+    record_columns = {c["name"] for c in inspect(engine).get_columns("service_records")}
+    assert "source" not in record_columns
+    with engine.connect() as connection:
+        assert (
+            connection.execute(text("SELECT count(*) FROM service_records")).scalar()
+            == 1
+        )
     engine.dispose()
 
 

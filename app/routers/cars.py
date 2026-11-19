@@ -8,7 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.models import Car, User
+from app.models import Car, User, msk_today
 from app.routers.pages import CurrentUser, DbSession, page_context, templates
 from app.services.cars import (
     FORM_FIELDS,
@@ -18,6 +18,7 @@ from app.services.cars import (
     validate_car_form,
     values_from_car,
 )
+from app.services.records import top_record
 
 router = APIRouter(prefix="/cars")
 
@@ -133,7 +134,7 @@ def create_car(
     data, errors = validate_car_form(values)
     if errors:
         return render_form(request, session, user, values, errors, status_code=422)
-    car = Car(**data, owner_id=user.id)
+    car = Car(**data, owner_id=user.id, mileage_date=msk_today())
     session.add(car)
     try:
         session.commit()
@@ -184,11 +185,13 @@ def update_car(
         "mileage": mileage,
         "gearbox": gearbox,
     }
-    data, errors = validate_car_form(values)
+    data, errors = validate_car_form(values, top_record(car))
     if errors:
         return render_edit_form(
             request, session, user, car, values, errors, status_code=422
         )
+    if data["mileage"] != car.mileage:
+        car.mileage_date = msk_today()
     for name, value in data.items():
         setattr(car, name, value)
     session.commit()

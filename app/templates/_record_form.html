@@ -1,0 +1,54 @@
+{# Форма записи журнала для добавления и изменения: адрес — из обработчика. #}
+{% from "_icons.html" import icon %}
+<form class="car-form" method="post" action="{{ form_action }}">
+    {% include "_csrf_field.html" %}
+    {% if errors %}
+    <div class="form-error" role="alert">Проверьте поля формы — некоторые заполнены неверно.</div>
+    {% endif %}
+    <div class="form-grid">
+        <div class="form-field">
+            <label for="date">Дата работы</label>
+            <input id="date" name="date" type="date" required value="{{ values.date }}">
+            {% if errors.date %}<div class="form-error" id="date-error">{{ errors.date }}</div>{% endif %}
+        </div>
+        <div class="form-field">
+            <label for="mileage">Пробег на момент работы, км</label>
+            <input id="mileage" name="mileage" type="number" inputmode="numeric" min="0" max="2000000" step="1" required value="{{ values.mileage }}">
+            {% if errors.mileage %}<div class="form-error" id="mileage-error">{{ errors.mileage }}</div>{% endif %}
+        </div>
+        <div class="form-field">
+            <label for="category">Категория</label>
+            <select id="category" name="category" required>
+                <option value="">Выберите категорию</option>
+                {% for code, title in work_types.items() %}
+                <option value="{{ code }}"{% if code == values.category %} selected{% endif %}>{{ title }}</option>
+                {% endfor %}
+            </select>
+            {% if errors.category %}<div class="form-error" id="category-error">{{ errors.category }}</div>{% endif %}
+        </div>
+        <div class="form-field">
+            <label for="amount">Стоимость, ₽</label>
+            <input id="amount" name="amount" type="number" inputmode="numeric" min="0" max="100000000" step="1" required value="{{ values.amount }}">
+            {% if errors.amount %}<div class="form-error" id="amount-error">{{ errors.amount }}</div>{% endif %}
+        </div>
+        <div class="form-field full">
+            <label for="title">Название работы</label>
+            <input id="title" name="title" maxlength="{{ max_title }}" required placeholder="Например: замена масла и масляного фильтра" value="{{ values.title }}">
+            {% if errors.title %}<div class="form-error" id="title-error">{{ errors.title }}</div>{% endif %}
+        </div>
+        <div class="form-field full">
+            <label for="service">Где выполнено</label>
+            <input id="service" name="service" maxlength="{{ max_service }}" placeholder="Сервис, мастер или «сам»" value="{{ values.service }}">
+            {% if errors.service %}<div class="form-error" id="service-error">{{ errors.service }}</div>{% endif %}
+        </div>
+        <div class="form-field full">
+            <label for="note">Примечание</label>
+            <textarea id="note" name="note" maxlength="{{ max_note }}" placeholder="Запчасти, артикулы, что заметил мастер">{{ values.note }}</textarea>
+            {% if errors.note %}<div class="form-error" id="note-error">{{ errors.note }}</div>{% endif %}
+        </div>
+    </div>
+    <div class="heading-actions">
+        <button class="primary" type="submit">{{ icon("check") }}Сохранить запись</button>
+        <a class="secondary" href="/history">Отмена</a>
+    </div>
+</form>

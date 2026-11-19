@@ -9,13 +9,43 @@
         <h1>История обслуживания</h1>
         <p>Все работы, запчасти и расходы — без потерянных заметок</p>
     </div>
+    {% if car %}
     <div class="heading-actions">
-        <button class="primary" type="button" disabled title="Появится вместе с журналом работ">{{ icon("wrench") }}Добавить работу</button>
+        <a class="primary" href="/cars/{{ car.id }}/records/new">{{ icon("wrench") }}Добавить запись</a>
     </div>
+    {% endif %}
 </div>
 
-{% include "_demo_note.html" %}
+{% if saved_record %}
+<div class="callout" role="status">{{ icon("check") }}Запись сохранена.</div>
+{% endif %}
+{% if offer_mileage %}
+<div class="callout survey-warning" role="status" id="mileage-offer">
+    {{ icon("mileage") }}В записи {{ saved_record.mileage | km }}, у машины {{ car.mileage | km }}. Обновить пробег машины?
+    <form method="post" action="/records/{{ saved_record.id }}/update-mileage" class="heading-actions">
+        {% include "_csrf_field.html" %}
+        <button class="primary" type="submit">Обновить</button>
+        <button class="secondary" type="button" onclick="document.getElementById('mileage-offer').remove()">Нет</button>
+    </form>
+</div>
+{% endif %}
+{% if mileage_updated %}
+<div class="callout" role="status">{{ icon("check") }}Пробег машины обновлён.</div>
+{% endif %}
 
+{% if not car %}
+<section class="card empty">
+    <h2>Добавьте машину</h2>
+    <p>Журнал работ ведётся для машины — сначала добавьте её.</p>
+    <a class="primary" href="/cars/new">{{ icon("car") }}Добавить машину</a>
+</section>
+{% elif not records %}
+<section class="card empty">
+    <h2>В журнале пока нет записей</h2>
+    <p>Запишите выполненную работу: дату, пробег и стоимость.</p>
+    <a class="primary" href="/cars/{{ car.id }}/records/new">{{ icon("wrench") }}Добавить запись</a>
+</section>
+{% else %}
 <form class="tools" action="/history" method="get">
     <input name="q" type="search" placeholder="Найти работу или сервис" value="{{ q }}" aria-label="Поиск в истории">
     <select name="type" aria-label="Категория">
@@ -37,15 +67,16 @@
     {% if found %}
     <table class="table">
         <thead>
-            <tr><th>Дата / пробег</th><th>Работа</th><th>Сервис</th><th>Стоимость</th></tr>
+            <tr><th>Дата / пробег</th><th>Работа</th><th>Сервис</th><th>Стоимость</th><th></th></tr>
         </thead>
         <tbody>
             {% for r in found %}
             <tr>
                 <td>{{ r.date | ru_date }}<br><small>{{ r.mileage | km }}</small></td>
-                <td><strong>{{ r.title }}</strong><small>{{ work_types[r.type] }}</small></td>
+                <td><strong>{{ r.title }}</strong><small>{{ work_types[r.category] }} · {{ record_sources[r.source] }}</small></td>
                 <td>{{ r.service or "—" }}</td>
                 <td>{{ r.amount | money }}</td>
+                <td><a class="text-btn" href="/records/{{ r.id }}/edit">Изменить</a></td>
             </tr>
             {% endfor %}
         </tbody>
@@ -57,4 +88,5 @@
 <div class="export-row">
     <small>Показано записей: {{ found | length }} из {{ records | length }}</small>
 </div>
+{% endif %}
 {% endblock %}
