@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+
+{% block title %}Изменить запись — АвтоГид AI{% endblock %}
+
+{% block content %}
+<div class="page-heading">
+    <div>
+        <h1>Изменить запись</h1>
+        <p>{{ record_sources[record.source] }}</p>
+    </div>
+    <div class="heading-actions">
+        <button class="danger" type="button" hx-post="/records/{{ record.id }}/delete" hx-confirm="Удалить запись из журнала? Отменить это будет нельзя.">Удалить запись</button>
+    </div>
+</div>
+
+<section class="card">
+    {% include "_record_form.html" %}
+</section>
+{% endblock %}

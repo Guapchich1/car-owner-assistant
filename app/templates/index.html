@@ -25,15 +25,13 @@
     </div>
     <div class="heading-actions">
         <a class="secondary" href="/history">{{ icon("history") }}Вся история</a>
-        <button class="primary" type="button" disabled title="Появится вместе с журналом работ">{{ icon("wrench") }}Добавить работу</button>
+        <a class="primary" href="/cars/{{ car.id }}/records/new">{{ icon("wrench") }}Добавить работу</a>
     </div>
 </div>
 
 {% if saved %}
 <div class="callout" role="status">{{ icon("check") }}Изменения сохранены.</div>
 {% endif %}
-
-{% include "_demo_note.html" %}
 
 {% include "_stats.html" %}
 
@@ -51,16 +49,18 @@
                 <p>{{ r.title }}</p>
                 <div class="tiny-price">{{ r.amount | money }} · {{ r.service or "Сервис не указан" }}</div>
             </div>
+            {% else %}
+            <p class="subtext">Записей пока нет. <a href="/cars/{{ car.id }}/records/new">Добавить запись</a></p>
             {% endfor %}
             <div class="event now">
                 <span class="event-dot">{{ icon("check") }}</span>
-                <h3>{{ vehicle.mileage | km }}<time>Сейчас</time></h3>
+                <h3>{{ car.mileage | km }}<time>Сейчас</time></h3>
                 <p>Текущее состояние автомобиля</p>
             </div>
             <div class="event future">
                 <span class="event-dot">{{ icon("wrench") }}</span>
-                <h3>{{ oil_due | km }}<time>{{ oil_due_text }}</time></h3>
-                <p>Следующее ТО — масло и масляный фильтр</p>
+                <h3>Следующее ТО</h3>
+                <p>План ТО появится позже. <a href="/maintenance">Пример плана</a></p>
             </div>
         </div>
     </section>
@@ -72,7 +72,7 @@
                 <span class="banner-icon">{{ icon("wrench") }}</span>
                 <div>
                     <small>Ближайшее ТО</small>
-                    <strong>Замена масла<br>{{ oil_due_text | lower }}</strong>
+                    <strong>План ТО появится позже</strong>
                 </div>
             </div>
         </section>
@@ -88,13 +88,8 @@
             </section>
             <section class="card mini-card">
                 <h3>Ближайшие работы</h3>
-                {% for job in jobs %}
-                <div class="doc-mini">
-                    {{ icon(job.icon) }}
-                    <div><b>{{ job.title }}</b><small>{{ job.due }}</small></div>
-                </div>
-                {% endfor %}
-                <a class="aside-link" href="/maintenance">Весь план ТО {{ icon("right") }}</a>
+                <p class="subtext">План ТО по регламенту модели появится позже.</p>
+                <a class="aside-link" href="/maintenance">Пример плана ТО {{ icon("right") }}</a>
             </section>
         </div>
     </div>

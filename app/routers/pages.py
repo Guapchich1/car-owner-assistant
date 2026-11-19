@@ -1,6 +1,6 @@
 """Страницы приложения по прототипу docs/design/prototype/.
 
-Карточка машины — из базы. Журнал, расходы и план ТО пока показывают
+Машина, журнал работ и расходы — из базы. План ТО пока показывает
 пример из app/data/demo.json.
 """
 
@@ -15,8 +15,16 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
 from app.db import get_session
-from app.models import GEARBOXES, User
-from app.services.cars import get_car, to_msk
+from app.models import GEARBOXES, RECORD_SOURCES, User
+from app.services.cars import NBSP, format_km, format_number, get_car, to_msk
+from app.services.records import (
+    car_records,
+    offers_mileage_update,
+    spent_by_category,
+    spent_month,
+    spent_total,
+    user_record,
+)
 from app.services.survey import car_mismatch_warnings
 from app.services.users import (
     SESSION_COOKIE,
@@ -81,27 +89,16 @@ WORK_TYPES = {
     "other": "Прочие работы",
 }
 
-NBSP = " "
-
-
-def format_number(value: float) -> str:
-    """Число с разделителем разрядов: 84 500."""
-    if value == int(value):
-        return f"{int(value):,}".replace(",", NBSP)
-    return f"{value:,.2f}".replace(",", NBSP).replace(".", ",")
-
-
-def format_km(value: float) -> str:
-    return f"{format_number(value)}{NBSP}км"
-
 
 def format_money(value: float) -> str:
     return f"{format_number(value)}{NBSP}₽"
 
 
-def format_date(value: str) -> str:
-    """2026-10-05 → 05.10.2026."""
-    return date.fromisoformat(value).strftime("%d.%m.%Y")
+def format_date(value: str | date) -> str:
+    """2026-10-05 → 05.10.2026; принимает строку или дату."""
+    if isinstance(value, str):
+        value = date.fromisoformat(value)
+    return value.strftime("%d.%m.%Y")
 
 
 def format_msk_datetime(value: datetime) -> str:
@@ -120,11 +117,13 @@ templates.env.filters["money"] = format_money
 templates.env.filters["ru_date"] = format_date
 templates.env.filters["msk_datetime"] = format_msk_datetime
 templates.env.globals["gearboxes"] = GEARBOXES
+templates.env.globals["record_sources"] = RECORD_SOURCES
+templates.env.globals["work_types"] = WORK_TYPES
 templates.env.globals["static_version"] = static_version
 
 
 def load_demo() -> dict:
-    """Пример машины и журнала работ."""
+    """Пример машины и журнала работ для плана ТО."""
     with open(APP_DIR / "data" / "demo.json", encoding="utf-8") as file:
         return json.load(file)
 
@@ -204,24 +203,16 @@ def maintenance_jobs(vehicle: dict, records: list[dict]) -> list[dict]:
 
 
 def page_context(active_nav: str, session: Session, user: User) -> dict:
-    """Общие данные для всех страниц: пользователь, его машина, пример журнала и сводки."""
-    demo = load_demo()
-    vehicle = demo["vehicle"]
-    records = sorted_records(demo["records"])
-    month = date.today().isoformat()[:7]
-    due = oil_due(vehicle, records)
+    """Общие данные для всех страниц: пользователь, его машина, журнал и сводка."""
+    car = get_car(session, user)
+    records = car_records(car)
     return {
         "active_nav": active_nav,
         "user": user,
-        "car": get_car(session, user),
-        "vehicle": vehicle,
+        "car": car,
         "records": records,
-        "work_types": WORK_TYPES,
-        "oil_due": due,
-        "oil_due_text": due_text(due, vehicle["mileage"]),
-        "oil_soon": due - vehicle["mileage"] < 2000,
-        "spent_total": sum(r["amount"] for r in records),
-        "spent_month": sum(r["amount"] for r in records if r["date"].startswith(month)),
+        "spent_total": spent_total(records),
+        "spent_month": spent_month(records),
     }
 
 
@@ -234,14 +225,10 @@ def index(
     context["saved"] = bool(saved)
     records = context["records"]
     recent = list(reversed(records[:8]))
-    top = max((r["amount"] for r in recent), default=1) or 1
+    top = max((r.amount for r in recent), default=1) or 1
     context["timeline"] = list(reversed(records[:4]))
-    context["chart"] = [max(10, round(r["amount"] / top * 100)) for r in recent]
-    context["jobs"] = maintenance_jobs(context["vehicle"], records)[:2]
-    # Плитка «Текущий пробег» — из машины в базе; остальное пока по примеру:
-    # журнал — пример, и сроки от реального пробега были бы неверными
+    context["chart"] = [max(10, round(r.amount / top * 100)) for r in recent]
     car = context["car"]
-    context["current_mileage"] = car.mileage if car else context["vehicle"]["mileage"]
     # Сразу после правки машины: её новые данные могли разойтись с анкетой
     context["car_warnings"] = (
         car_mismatch_warnings(car.survey, car) if saved and car and car.survey else []
@@ -257,24 +244,35 @@ def history(
     q: str = "",
     type: str = "all",
     year: str = "all",
+    saved: int = 0,
+    mileage_updated: int = 0,
 ) -> HTMLResponse:
-    """История обслуживания с поиском и фильтрами."""
+    """Журнал работ с поиском и фильтрами.
+
+    saved — номер только что сохранённой записи: показываем «Запись сохранена»
+    и, если нужно, предложение обновить пробег машины. Чужую запись не ищем.
+    """
     context = page_context("history", session, user)
     records = context["records"]
     query = q.strip().lower()
     found = [
         r
         for r in records
-        if (type == "all" or r["type"] == type)
-        and (year == "all" or r["date"].startswith(year))
-        and (query in r["title"].lower() or query in r["service"].lower())
+        if (type == "all" or r.category == type)
+        and (year == "all" or str(r.date.year) == year)
+        and (query in r.title.lower() or query in (r.service or "").lower())
     ]
+    saved_record = user_record(session, user, saved) if saved else None
+    car = context["car"]
     context.update(
         found=found,
-        years=sorted({r["date"][:4] for r in records}, reverse=True),
+        years=sorted({str(r.date.year) for r in records}, reverse=True),
         q=q,
         selected_type=type,
         selected_year=year,
+        saved_record=saved_record,
+        offer_mileage=bool(saved_record and offers_mileage_update(saved_record, car)),
+        mileage_updated=bool(mileage_updated),
     )
     return templates.TemplateResponse(request, "history.html", context)
 
@@ -283,9 +281,10 @@ def history(
 def maintenance(
     request: Request, session: DbSession, user: CurrentUser
 ) -> HTMLResponse:
-    """План ТО."""
+    """План ТО — пока по примеру из demo.json, не по журналу из базы."""
     context = page_context("maintenance", session, user)
-    context["jobs"] = maintenance_jobs(context["vehicle"], context["records"])
+    demo = load_demo()
+    context["jobs"] = maintenance_jobs(demo["vehicle"], sorted_records(demo["records"]))
     return templates.TemplateResponse(request, "maintenance.html", context)
 
 
@@ -293,11 +292,10 @@ def maintenance(
 def expenses(request: Request, session: DbSession, user: CurrentUser) -> HTMLResponse:
     """Расходы по категориям работ."""
     context = page_context("expenses", session, user)
-    groups = []
-    for key, title in WORK_TYPES.items():
-        amount = sum(r["amount"] for r in context["records"] if r["type"] == key)
-        if amount:
-            groups.append({"title": title, "amount": amount})
+    groups = [
+        {"title": WORK_TYPES[key], "amount": amount}
+        for key, amount in spent_by_category(context["records"]).items()
+    ]
     groups.sort(key=lambda g: g["amount"], reverse=True)
     top = max((g["amount"] for g in groups), default=1)
     for group in groups:
