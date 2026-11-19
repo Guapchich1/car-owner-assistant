@@ -7,7 +7,7 @@ from fastapi import Depends, FastAPI, Request
 from fastapi.responses import RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 
-from app.routers import auth, cars, pages, survey
+from app.routers import auth, cars, pages, records, survey
 from app.routers.pages import get_current_user, templates, verify_csrf
 from app.services.users import LoginRequired
 
@@ -28,6 +28,7 @@ app.include_router(auth.protected_router, dependencies=PROTECTED)
 app.include_router(pages.router, dependencies=PROTECTED)
 app.include_router(cars.router, dependencies=PROTECTED)
 app.include_router(survey.router, dependencies=PROTECTED)
+app.include_router(records.router, dependencies=PROTECTED)
 
 
 def is_htmx(request: Request) -> bool:

@@ -1,6 +1,6 @@
 """Таблицы базы данных: пользователи и сессии, машины, журнал работ и анкета."""
 
-from datetime import date, datetime
+from datetime import date, datetime, timedelta, timezone
 
 from sqlalchemy import (
     JSON,
@@ -21,8 +21,24 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db import Base
 
-# Категории работ — как поле type в app/data/demo.json
+# В Москве круглый год UTC+3: летнего времени нет с 2014 года.
+# ZoneInfo("Europe/Moscow") на Windows без пакета tzdata не работает.
+MSK = timezone(timedelta(hours=3))
+
+
+def msk_today() -> date:
+    """Сегодняшняя дата по Москве."""
+    return datetime.now(MSK).date()
+
+
+# Категории работ в журнале; названия — WORK_TYPES в app/routers/pages.py
 CATEGORIES = ("oil", "filters", "brakes", "tires", "diagnostic", "other")
+
+# Источник записи журнала: код в базе → название в интерфейсе
+RECORD_SOURCES = {
+    "manual": "Добавлено вручную",
+    "apipoint": "Из истории apipoint",
+}
 
 # Коробки передач: код в базе → название в интерфейсе
 GEARBOXES = {
@@ -218,6 +234,8 @@ class Car(Base):
     # Необязательный: машин без VIN может быть несколько, NULL не конфликтует
     vin: Mapped[str | None] = mapped_column(String(17), unique=True)
     mileage: Mapped[int] = mapped_column(Integer)  # текущий пробег, км
+    # Дата, на которую указан пробег (по Москве); меняется вместе с пробегом
+    mileage_date: Mapped[date] = mapped_column(Date, default=msk_today)
     created_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.current_timestamp()
     )
@@ -241,6 +259,9 @@ class ServiceRecord(Base):
             "category IN ({})".format(", ".join(f"'{c}'" for c in CATEGORIES)),
             name="ck_service_records_category",
         ),
+        CheckConstraint(
+            _one_of("source", RECORD_SOURCES), name="ck_service_records_source"
+        ),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -254,6 +275,10 @@ class ServiceRecord(Base):
     amount: Mapped[int] = mapped_column(Integer)  # стоимость, целые рубли
     service: Mapped[str | None] = mapped_column(String(200))  # где выполнено
     note: Mapped[str | None] = mapped_column(Text)  # примечание
+    # Откуда запись: код из RECORD_SOURCES
+    source: Mapped[str] = mapped_column(
+        String(20), default="manual", server_default="manual"
+    )
 
     car: Mapped[Car] = relationship(back_populates="records")
 
@@ -262,7 +287,7 @@ class CarSurvey(Base):
     """Анкета об использовании: одна строка на машину.
 
     Строки нет — анкету не заполняли или пропустили. Сведения о последнем ТО —
-    со слов владельца: в журнал работ они не попадают (перенос — в задаче 3.1).
+    со слов владельца: в журнал работ они не попадают.
     """
 
     __tablename__ = "car_surveys"

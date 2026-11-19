@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+
+{% block title %}Добавить запись — АвтоГид AI{% endblock %}
+
+{% block content %}
+<div class="page-heading">
+    <div>
+        <h1>Добавить запись</h1>
+        <p>Работа, пробег и стоимость — для журнала и расходов</p>
+    </div>
+</div>
+
+<section class="card">
+    {% include "_record_form.html" %}
+</section>
+{% endblock %}

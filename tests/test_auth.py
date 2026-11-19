@@ -1,7 +1,7 @@
 import hashlib
 import logging
 import re
-from datetime import timedelta
+from datetime import date, timedelta
 from urllib.parse import unquote
 
 import pytest
@@ -10,7 +10,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import select
 
 from app.main import app
-from app.models import Car, CarSurvey, User, UserSession
+from app.models import Car, CarSurvey, ServiceRecord, User, UserSession
 from app.routers import auth, cars
 from app.services.users import (
     SESSION_COOKIE,
@@ -35,8 +35,17 @@ CAR_URLS = [
     ("POST", "/cars/{car_id}/survey/edit"),
     ("GET", "/cars/{car_id}/survey/long-trip"),
     ("POST", "/cars/{car_id}/survey/clear"),
+    ("GET", "/cars/{car_id}/records/new"),
+    ("POST", "/cars/{car_id}/records/new"),
 ]
-# Работающая форма чужой машины: если бы проверки не было, она бы что-то изменила
+# Все адреса с номером записи журнала — так же, как CAR_URLS
+RECORD_URLS = [
+    ("GET", "/records/{record_id}/edit"),
+    ("POST", "/records/{record_id}/edit"),
+    ("POST", "/records/{record_id}/delete"),
+    ("POST", "/records/{record_id}/update-mileage"),
+]
+# Работающая форма чужой машины или записи: без проверки она бы что-то изменила
 CAR_FORM = {
     "brand": "Lada",
     "model": "Vesta",
@@ -46,6 +55,10 @@ CAR_FORM = {
     "mileage": "1",
     "gearbox": "robot",
     "purposes_other": "Чужой ответ",
+    "date": "2026-01-10",
+    "category": "other",
+    "title": "Чужая работа",
+    "amount": "1",
 }
 OPEN_URLS = ("/login", "/register")
 
@@ -523,6 +536,7 @@ def test_foreign_car_is_404_and_unchanged(
     assert session.get(Car, car.id).mileage == 84500
     assert session.get(Car, car.id).owner_id == car.owner_id
     assert car.survey.purposes_other == "Секретная рыбалка"
+    assert session.scalars(select(ServiceRecord)).all() == []
 
 
 @pytest.mark.parametrize("method, path", CAR_URLS)
@@ -542,6 +556,77 @@ def test_car_without_owner_is_404(client, session, method, path):
     assert response.status_code == 404
     session.expire_all()
     assert session.get(Car, old.id) is not None
+    assert session.scalars(select(ServiceRecord)).all() == []
+
+
+def test_record_urls_list_is_complete():
+    """В RECORD_URLS есть все адреса с номером записи из приложения."""
+    found = {(m, p) for m, p in app_routes() if "{record_id}" in p}
+
+    assert found == set(RECORD_URLS)
+
+
+def add_secret_record(session, car):
+    """Запись водителя, которая предлагает обновить пробег его машины."""
+    car.mileage_date = date(2026, 1, 1)
+    record = ServiceRecord(
+        car=car,
+        date=date(2026, 2, 1),
+        mileage=90000,
+        category="oil",
+        title="Секретная замена масла",
+        amount=7777,
+        service="Тайный сервис",
+    )
+    session.add(record)
+    session.commit()
+    return record
+
+
+@pytest.mark.parametrize("method, path", RECORD_URLS)
+def test_foreign_record_is_404_and_unchanged(
+    client, neighbour_client, neighbour, session, car, method, path
+):
+    """На каждом адресе чужая запись — 404: она не видна и не меняется."""
+    record = add_secret_record(session, car)
+    # У соседа своя машина: проверка — по владельцу записи, а не по наличию машины
+    make_test_car(session, neighbour, make="Kia", model="Rio", year=2018)
+
+    response = neighbour_client.request(
+        method,
+        path.replace("{record_id}", str(record.id)),
+        data=CAR_FORM if method == "POST" else None,
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 404
+    for secret in ("Секретная замена масла", "Тайный сервис", "7777", "7 777"):
+        assert secret not in response.text
+    session.expire_all()
+    saved = session.get(ServiceRecord, record.id)
+    assert (saved.title, saved.mileage, saved.amount) == (
+        "Секретная замена масла",
+        90000,
+        7777,
+    )
+    assert (car.mileage, car.mileage_date) == (84500, date(2026, 1, 1))
+
+
+def test_foreign_saved_record_shows_no_banners(
+    client, neighbour_client, neighbour, session, car
+):
+    """/history?saved=<чужая запись>: ни «сохранено», ни предложения пробега."""
+    record = add_secret_record(session, car)
+    make_test_car(session, neighbour, make="Kia", model="Rio", year=2018, mileage=1)
+
+    html = neighbour_client.get(f"/history?saved={record.id}").text
+
+    assert "Запись сохранена" not in html
+    assert "Обновить пробег машины?" not in html
+    assert "update-mileage" not in html
+    assert "Секретная замена масла" not in html
+    # Владельцу та же ссылка показывает предложение
+    assert "Обновить пробег машины?" in client.get(f"/history?saved={record.id}").text
 
 
 @pytest.mark.parametrize(

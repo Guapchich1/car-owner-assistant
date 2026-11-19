@@ -79,14 +79,14 @@ def test_static_version_changes(tmp_path, monkeypatch):
 
 
 def test_index_dashboard(client, car):
-    """Главная с машиной: сводка, история, ближайшее ТО и карточка помощника."""
+    """Главная с машиной: сводка, история, заглушка ТО и карточка помощника."""
     html = client.get("/").text
 
     assert 'class="stats"' in html
     assert 'class="timeline"' in html
     assert "Ближайшее ТО" in html
-    assert "Через 1 500 км" in html
-    assert "60 600 ₽" in html
+    assert "План ТО появится позже" in html
+    assert "Записей пока нет" in html
     assert 'action="/assistant"' in html
 
 
@@ -96,7 +96,7 @@ def stats_block(html: str) -> str:
 
 
 def test_index_mileage_from_db(client, session, car):
-    """На главной из базы — только плитка «Текущий пробег»; «До замены масла» и «Сейчас» — по примеру."""
+    """Плитка «Текущий пробег» и точка «Сейчас» — из машины в базе."""
     car.mileage = 85000
     session.commit()
 
@@ -104,9 +104,8 @@ def test_index_mileage_from_db(client, session, car):
     stats = stats_block(html)
 
     assert format_km(85000) in stats
-    assert format_km(84500) not in stats
-    assert format_km(1500) in stats
-    assert f"<h3>{format_km(84500)}<time>Сейчас</time></h3>" in html
+    assert "Появится с планом ТО" in stats
+    assert f"<h3>{format_km(85000)}<time>Сейчас</time></h3>" in html
 
 
 def test_index_zero_mileage(client, session, car):
@@ -117,36 +116,15 @@ def test_index_zero_mileage(client, session, car):
     assert format_km(0) in stats_block(client.get("/").text)
 
 
-def test_expenses_mileage_from_demo(client, session, car):
-    """На расходах сводка по примеру, даже если машина в базе есть."""
+def test_expenses_mileage_from_db(client, session, car):
+    """На расходах сводка тоже из базы."""
     car.mileage = 85000
     session.commit()
 
     stats = stats_block(client.get("/expenses").text)
 
-    assert format_km(84500) in stats
-    assert format_km(85000) not in stats
-
-
-def test_history_table(client):
-    """История показывает все работы из журнала."""
-    html = client.get("/history").text
-
-    assert "Показано записей: 6 из 6" in html
-    assert "Замена передних тормозных колодок" in html
-
-
-def test_history_filters(client):
-    """Поиск и фильтры истории отбирают записи."""
-    html = client.get("/history", params={"type": "oil"}).text
-    assert "Показано записей: 2 из 6" in html
-    assert "Компьютерная диагностика" not in html
-
-    html = client.get("/history", params={"year": "2026", "q": "vag"}).text
-    assert "Показано записей: 2 из 6" in html
-
-    html = client.get("/history", params={"q": "нет такой работы"}).text
-    assert "Ничего не найдено" in html
+    assert format_km(85000) in stats
+    assert format_km(84500) not in stats
 
 
 def test_maintenance_plan(client):
@@ -174,14 +152,6 @@ def test_maintenance_ignores_db_mileage(client, session, car):
     assert after == before
     assert f"Через {format_km(1500)}" in after
     assert "Просрочено" not in after
-
-
-def test_expenses_groups(client):
-    """Расходы разбиты по категориям работ."""
-    html = client.get("/expenses").text
-
-    assert "За всё время: 60 600 ₽" in html
-    assert html.count('class="expense-bar"') == 4
 
 
 def test_assistant_shows_question(client):
