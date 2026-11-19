@@ -317,6 +317,23 @@ def test_mileage_above_car_on_mileage_date_ok(car_jan):
     assert mileage_error(form(date="2026-01-01", mileage="90000"), car_jan) is None
 
 
+def test_mileage_below_car_after_mileage_date(car_jan):
+    """Работа позже даты пробега машины не может иметь пробег меньше."""
+    assert mileage_error(form(date="2026-01-02", mileage="84499"), car_jan) == (
+        f"На 01.01.2026 у машины было {format_km(84500)}, "
+        "работа позже — пробег не может быть меньше"
+    )
+
+
+def test_mileage_below_car_on_mileage_date_ok(car_jan):
+    """В тот же день меньший пробег разрешён."""
+    assert mileage_error(form(date="2026-01-01", mileage="80000"), car_jan) is None
+
+
+def test_mileage_equal_car_after_mileage_date_ok(car_jan):
+    assert mileage_error(form(date="2026-01-02", mileage="84500"), car_jan) is None
+
+
 def test_mileage_below_earlier_record(session, car_jan):
     add_record(session, car_jan, date=date(2025, 6, 1), mileage=70000)
 

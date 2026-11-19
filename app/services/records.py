@@ -92,12 +92,17 @@ def _mileage_conflict(
     """Противоречие пробега записи с машиной и другими записями; нет — None.
 
     Изменяемую запись не учитываем. Записи с той же датой между собой
-    не сравниваем: порядок работ за один день неизвестен.
+    и с датой пробега машины не сравниваем: порядок за один день неизвестен.
     """
     if work_date < car.mileage_date and mileage > car.mileage:
         return (
             f"На {ru_date(car.mileage_date)} у машины было {format_km(car.mileage)}, "
             "работа раньше — пробег не может быть больше"
+        )
+    if work_date > car.mileage_date and mileage < car.mileage:
+        return (
+            f"На {ru_date(car.mileage_date)} у машины было {format_km(car.mileage)}, "
+            "работа позже — пробег не может быть меньше"
         )
     others = [r for r in car.records if record is None or r.id != record.id]
     earlier = [r for r in others if r.date < work_date and r.mileage > mileage]
