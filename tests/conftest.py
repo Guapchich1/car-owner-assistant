@@ -8,6 +8,7 @@ from app import models  # noqa: F401 — регистрирует таблицы
 from app.db import Base, get_session, make_engine
 from app.main import app
 from app.models import Car, User
+from app.services import vin as vin_service
 from app.services.users import (
     SESSION_COOKIE,
     csrf_token_for,
@@ -16,8 +17,25 @@ from app.services.users import (
 )
 
 TEST_PASSWORD = "пароль-для-тестов"
+# Ненастоящий токен apipoint: тесты проверяют, что он нигде не печатается
+TEST_APIPOINT_TOKEN = "secret-test-token"
 # Считаем хеш один раз: Argon2 намеренно медленный, а пользователь нужен почти везде
 TEST_PASSWORD_HASH = hash_password(TEST_PASSWORD)
+
+
+@pytest.fixture(autouse=True)
+def no_real_apipoint(monkeypatch):
+    """В тестах настоящих запросов к apipoint нет: запрос валит тест.
+
+    Токен — тестовый: load_dotenv в app/main.py иначе подхватил бы настоящий из .env.
+    Тесты, которым нужен ответ apipoint, подменяют _send сами.
+    """
+
+    def forbidden(vin: str, token: str) -> dict:
+        pytest.fail("Настоящий запрос к apipoint в тестах запрещён")
+
+    monkeypatch.setattr(vin_service, "_send", forbidden)
+    monkeypatch.setenv("APIPOINT_TOKEN", TEST_APIPOINT_TOKEN)
 
 
 @pytest.fixture

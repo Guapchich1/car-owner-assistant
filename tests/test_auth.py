@@ -856,7 +856,7 @@ def test_every_post_form_has_token(client, session, car):
 
 
 def test_new_car_form_has_token(make_client, make_user):
-    html = make_client(make_user("newbie")).get("/cars/new").text
+    html = make_client(make_user("newbie")).get("/cars/new?by=vin").text
 
     form = html.split('<form class="car-form"', 1)[1].split("</form>", 1)[0]
     assert 'name="csrf_token"' in form

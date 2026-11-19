@@ -119,9 +119,58 @@ def test_moscow_time():
 # --- Форма добавления ---
 
 
+def test_add_car_offers_choice(client):
+    """«Добавить машину» сначала предлагает способ: по VIN или вручную."""
+    response = client.get("/cars/new")
+
+    assert response.status_code == 200
+    assert "<h1>Добавить машину</h1>" in response.text
+    assert 'href="/cars/new?by=vin"' in response.text
+    assert 'href="/cars/new?by=manual"' in response.text
+    assert "<form" not in response.text.split("<main", 1)[-1]
+
+
+def test_unknown_add_mode_shows_choice(client):
+    """Непонятный способ в адресе — снова выбор способа."""
+    html = client.get("/cars/new?by=excel").text
+
+    assert 'href="/cars/new?by=vin"' in html
+    assert 'class="car-form"' not in html
+
+
+def test_manual_form_without_vin(client):
+    """Вручную — только справочник: поля VIN и кнопки «Заполнить по VIN» нет."""
+    html = client.get("/cars/new?by=manual").text
+
+    assert 'class="car-form"' in html
+    assert 'name="vin"' not in html
+    assert "Заполнить по VIN" not in html
+    assert 'name="by" value="manual"' in html
+    assert 'href="/cars/new">Другой способ' in html
+
+
+def test_vin_form_has_vin_field(client):
+    """По VIN — поле VIN в фокусе, кнопка и остаток запросов."""
+    html = client.get("/cars/new?by=vin").text
+
+    assert 'name="vin"' in html and "autofocus" in html
+    assert 'hx-post="/cars/new/vin"' in html
+    assert "осталось 10 из 10" in html
+    assert 'name="by" value="vin"' in html
+
+
+@pytest.mark.parametrize("by, has_vin", [("vin", True), ("manual", False), ("", False)])
+def test_error_keeps_add_mode(client, by, has_vin):
+    """После ошибки форма остаётся в том же способе добавления."""
+    response = client.post("/cars/new", data=form(by=by, year="2030"))
+
+    assert response.status_code == 422
+    assert ('name="vin"' in response.text) is has_vin
+
+
 def test_form_opens_without_car(client):
     """Форма открывается и подключает HTMX для зависимых списков."""
-    response = client.get("/cars/new")
+    response = client.get("/cars/new?by=manual")
 
     assert response.status_code == 200
     assert "<h1>Добавить машину</h1>" in response.text
@@ -392,13 +441,17 @@ def test_edit_form_warns_about_value_not_in_catalog(client, session, user):
 
 
 def test_update_car_changes_only_form_fields(client, session, car):
-    """Сохранение меняет характеристики; VIN, дата добавления и анкета остаются."""
+    """Сохранение меняет характеристики; VIN из формы, дата добавления и анкета остаются."""
     car.vin = "XTA21900000000001"
     session.add(CarSurvey(car=car, trip_frequency="daily"))
     session.commit()
     created_at = car.created_at
 
-    response = client.post(f"/cars/{car.id}/edit", data=FORM, follow_redirects=False)
+    response = client.post(
+        f"/cars/{car.id}/edit",
+        data=form(vin="XTA21900000000001"),
+        follow_redirects=False,
+    )
 
     assert response.status_code == 303
     assert response.headers["location"] == "/?saved=1"

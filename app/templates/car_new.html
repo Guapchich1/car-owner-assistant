@@ -6,7 +6,14 @@
 <div class="page-heading">
     <div>
         <h1>Добавить машину</h1>
+        {% if vin_mode %}
+        <p>Введите VIN и нажмите «Заполнить по VIN», затем проверьте подставленные данные</p>
+        {% else %}
         <p>Выберите машину из справочника по шагам: марка, модель, поколение и двигатель</p>
+        {% endif %}
+    </div>
+    <div class="heading-actions">
+        <a class="secondary" href="/cars/new">Другой способ</a>
     </div>
 </div>
 
