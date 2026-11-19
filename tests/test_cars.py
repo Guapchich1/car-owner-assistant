@@ -300,10 +300,11 @@ def test_form_options_reset_chain():
 # --- Редактирование и удаление ---
 
 
-def legacy_car(session, **fields):
+def legacy_car(session, owner, **fields):
     """Старая запись: без поколения, двигателя и коробки."""
     car = Car(
-        **{"make": "Lada", "model": "Granta", "year": 2020, "mileage": 1000, **fields}
+        owner_id=owner.id,
+        **{"make": "Lada", "model": "Granta", "year": 2020, "mileage": 1000, **fields},
     )
     session.add(car)
     session.commit()
@@ -353,9 +354,9 @@ def test_edit_page_has_delete_button_with_confirm(client, car):
     assert "Удалить авто" in html
 
 
-def test_edit_form_opens_for_legacy_car(client, session):
+def test_edit_form_opens_for_legacy_car(client, session, user):
     """У старой записи нет поколения и коробки: поля пустые, подсказок нет."""
-    car = legacy_car(session)
+    car = legacy_car(session, user)
 
     response = client.get(f"/cars/{car.id}/edit")
 
@@ -367,9 +368,9 @@ def test_edit_form_opens_for_legacy_car(client, session):
     assert "этого значения нет в справочнике" not in html
 
 
-def test_edit_form_warns_about_value_not_in_catalog(client, session):
+def test_edit_form_warns_about_value_not_in_catalog(client, session, user):
     """Значение не из справочника форма сбрасывает, поэтому говорит об этом."""
-    car = legacy_car(session, model="Нет такой")
+    car = legacy_car(session, user, model="Нет такой")
 
     html = client.get(f"/cars/{car.id}/edit").text
 
